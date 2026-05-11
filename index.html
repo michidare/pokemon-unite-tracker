@@ -400,6 +400,15 @@
   .page-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent);}
   .page-btn:disabled{opacity:0.3;cursor:not-allowed;}
   .page-info{font-size:13px;color:var(--text2);min-width:64px;text-align:center;}
+
+  /* シェア画像モーダル */
+  .share-modal-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;width:100%;max-width:640px;max-height:92vh;overflow-y:auto;}
+  .share-modal-box h3{font-size:15px;font-weight:700;margin-bottom:1rem;}
+  #sharePreview{min-height:80px;border-radius:8px;overflow:hidden;background:var(--bg3);}
+  #sharePreview img{width:100%;height:auto;display:block;}
+  .share-hint{font-size:11px;color:var(--text3);margin-top:8px;text-align:center;line-height:1.6;}
+  .btn-share-icon{background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:var(--radius-sm);padding:5px 10px;font-size:14px;cursor:pointer;line-height:1;}
+  .btn-share-icon:hover{border-color:var(--accent);color:var(--accent);}
 </style>
 <link rel="manifest" href="manifest.json" />
 </head>
@@ -519,7 +528,10 @@
     <div class="card" id="statsCard" style="display:none;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
         <div class="card-title" style="margin-bottom:0;">統計 — <span id="statsTitle"></span></div>
-        <button class="btn-help" onclick="openHelp('stats')">？</button>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <button class="btn-share-icon" onclick="openShareModal()" title="シェア画像を生成">📸</button>
+          <button class="btn-help" onclick="openHelp('stats')">？</button>
+        </div>
       </div>
       <div class="stats-grid">
         <div class="stat-box"><div class="stat-label">試合数</div><div class="stat-val" id="sTotal">0</div></div>
@@ -861,6 +873,24 @@
 
 </div>
 
+<!-- シェア画像モーダル -->
+<div class="modal-overlay" id="shareModal">
+  <div class="share-modal-box">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+      <h3>📸 シェア画像</h3>
+      <button class="btn-modal-cancel" style="width:auto;padding:5px 12px;" onclick="closeModal('shareModal')">✕</button>
+    </div>
+    <div id="sharePreview"></div>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <button class="btn-modal-ok" onclick="webShare()" style="flex:1;">📤 シェア / 保存</button>
+      <button class="btn-modal-cancel" onclick="downloadShareImage()" style="flex:1;">💾 ダウンロード</button>
+    </div>
+    <div class="share-hint">
+      PCの場合はダウンロード後にXへ手動投稿 / スマホはシェアボタンから直接共有できます
+    </div>
+  </div>
+</div>
+
 <!-- CSVエクスポートモーダル -->
 <div class="modal-overlay" id="csvModal">
   <div class="modal">
@@ -1094,7 +1124,7 @@ const SKILLS = {
   'メガギャラドス':{s1:['りゅうのいぶき'],                    s2:['たきのぼり']},
   'ギルガルド':    {s1:['せいなるつるぎ','シャドークロー'],    s2:['ワイドガード','アイアンヘッド']},
   'グレイシア':    {s1:['つららばり','こごえるかぜ'],          s2:['こおりのつぶて','フリーズドライ']},
-  'グレンアルマ':  {s1:['アーマーキャノン','サイコショック'],  s2:['ニトロチャージ','ほのおのうず']},
+  'グレンアルマ':  {s1:['ほのおのうず','アーマーキャノン'],  s2:['ニトロチャージ','サイコショック']},
   'ゲッコウガ':    {s1:['かげぶんしん','えんまく'],            s2:['みずしゅりけん','なみのり']},
   'ゲンガー':      {s1:['シャドーボール','ヘドロばくだん'],    s2:['ゆめくい','たたりめ']},
   'コダック':      {s1:['なみのり','バブルこうせん'],          s2:['かなしばり','サイコキネシス']},
@@ -1532,6 +1562,15 @@ function showPage(page){
 // ---- 更新履歴 ----
 // ★ 新しい更新を追加するときはこのリストの先頭に追加してください
 const CHANGELOG = [
+  {
+    version: 'v2.3',
+    date: '2025-05-12',
+    items: [
+      'シェア画像生成機能を追加（統計カードの📸ボタン）',
+      'トータル・ソロ・デュオ/トリオ・フルパの勝率とポケモンTOP3を1枚の画像に出力',
+      'スマホはWeb Share APIで直接共有、PCはダウンロードしてXなどへ投稿可能',
+    ]
+  },
   {
     version: 'v2.2',
     date: '2025-05-09',
@@ -2469,6 +2508,255 @@ function pwaInstall(){
 function pwaDismiss(){document.getElementById('pwaBar').classList.remove('show');}
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+}
+
+// ---- シェア画像生成 ----
+let shareCanvas=null;
+
+function openShareModal(){
+  if(!currentSeriesId||!battles.length)return;
+  document.getElementById('shareModal').classList.add('open');
+  setTimeout(generateShareImage,50);
+}
+
+async function generateShareImage(){
+  const preview=document.getElementById('sharePreview');
+  preview.innerHTML='<div style="padding:2rem;text-align:center;color:var(--text3);font-size:13px;">画像を生成中...</div>';
+
+  const seriesName=document.getElementById('statsTitle').textContent;
+  const modes=[
+    {label:'トータル',     emoji:'📊',color:'#7c83f5',badgeBg:'#1e2040',list:battles},
+    {label:'ソロ',         emoji:'🎮',color:'#7c83f5',badgeBg:'#1e2040',list:battles.filter(b=>b.match_type==='solo')},
+    {label:'デュオ/トリオ',emoji:'👥',color:'#ffa726',badgeBg:'#2e2010',list:battles.filter(b=>b.match_type==='duo')},
+    {label:'フルパ',       emoji:'🏆',color:'#26a69a',badgeBg:'#0a2020',list:battles.filter(b=>b.match_type==='full')},
+  ];
+
+  const getTop3=(list)=>{
+    const map={};
+    list.filter(b=>b.pokemon).forEach(b=>{
+      if(!map[b.pokemon])map[b.pokemon]={w:0,l:0};
+      b.result==='win'?map[b.pokemon].w++:map[b.pokemon].l++;
+    });
+    return Object.entries(map)
+      .map(([name,s])=>({name,w:s.w,t:s.w+s.l,wr:s.w/(s.w+s.l)*100}))
+      .sort((a,b)=>b.wr-a.wr||(b.t-a.t))
+      .slice(0,3);
+  };
+
+  // ポケモン画像プリロード
+  const allNames=new Set(modes.flatMap(m=>getTop3(m.list).map(p=>p.name)));
+  const loadImg=url=>new Promise(res=>{
+    const img=new Image();img.crossOrigin='anonymous';
+    img.onload=()=>res(img);img.onerror=()=>res(null);
+    img.src=url;setTimeout(()=>res(null),4000);
+  });
+  const pokeImgs={};
+  await Promise.all([...allNames].map(async n=>{
+    const url=getIconUrl(n);if(url)pokeImgs[n]=await loadImg(url);
+  }));
+
+  const W=1200,H=630;
+  const canvas=document.createElement('canvas');
+  canvas.width=W;canvas.height=H;
+  const ctx=canvas.getContext('2d');
+
+  // 角丸矩形ヘルパー
+  const rr=(x,y,w,h,r)=>{
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);
+    ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+    ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);
+    ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath();
+  };
+
+  // 背景
+  const bgG=ctx.createLinearGradient(0,0,W,H);
+  bgG.addColorStop(0,'#0d0f1a');bgG.addColorStop(1,'#0f1117');
+  ctx.fillStyle=bgG;ctx.fillRect(0,0,W,H);
+
+  // グリッドパターン（背景装飾）
+  ctx.strokeStyle='#ffffff06';ctx.lineWidth=1;
+  for(let x=0;x<W;x+=48){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<H;y+=48){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+  // ヘッダー背景
+  const hG=ctx.createLinearGradient(0,0,0,82);
+  hG.addColorStop(0,'#1a1d27');hG.addColorStop(1,'#0f1117');
+  ctx.fillStyle=hG;ctx.fillRect(0,0,W,82);
+
+  // ヘッダー上部アクセントライン
+  const aG=ctx.createLinearGradient(0,0,W,0);
+  aG.addColorStop(0,'#7c83f5');aG.addColorStop(0.5,'#26a69a');aG.addColorStop(1,'#7c83f5');
+  ctx.fillStyle=aG;ctx.fillRect(0,0,W,3);
+
+  // アプリ名
+  ctx.font='bold 17px "Segoe UI",system-ui,sans-serif';
+  ctx.fillStyle='#7c83f5';ctx.textAlign='left';
+  ctx.fillText('⚡ ユナイト 対戦トラッカー',36,47);
+
+  // シリーズ名（右）
+  ctx.font='bold 26px "Segoe UI",system-ui,sans-serif';
+  ctx.fillStyle='#e8eaf6';ctx.textAlign='right';
+  ctx.fillText(seriesName,W-36,47);
+
+  // 日付（右下）
+  const now=new Date();
+  ctx.font='12px "Segoe UI",system-ui,sans-serif';
+  ctx.fillStyle='#5c6080';
+  ctx.fillText(`${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')}`,W-36,68);
+  ctx.textAlign='left';
+
+  // ヘッダー下線
+  ctx.strokeStyle='#2e325050';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(0,82);ctx.lineTo(W,82);ctx.stroke();
+
+  // ===== 各モード行 =====
+  const ROWS_Y=84,ROW_H=Math.floor((H-84-38)/4); // 約127px
+  const LEFT_W=430,DIV_X=450,RIGHT_X=470;
+  const MEDALS=['🥇','🥈','🥉'];
+  const MEDAL_COLORS=['#fdd835','#b0bec5','#cd7c3a'];
+
+  modes.forEach((mode,mi)=>{
+    const rowY=ROWS_Y+mi*ROW_H;
+    const bl=mode.list;
+    const bw=bl.filter(b=>b.result==='win').length;
+    const bt=bl.length;
+    const bwr=bt>0?bw/bt*100:null;
+    const top3=getTop3(bl);
+
+    // 行背景（交互）
+    ctx.fillStyle=mi%2===0?'#1a1d2712':'#12141e0c';
+    ctx.fillRect(0,rowY,W,ROW_H);
+
+    // 行区切り線
+    ctx.strokeStyle='#2e325030';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(0,rowY+ROW_H);ctx.lineTo(W,rowY+ROW_H);ctx.stroke();
+
+    // ---- 左：モード成績 ----
+    // モードバッジ
+    rr(28,rowY+14,124,24,12);
+    ctx.fillStyle=mode.badgeBg;ctx.fill();
+    ctx.strokeStyle=mode.color+'55';ctx.lineWidth=1;ctx.stroke();
+    ctx.font='bold 12px "Segoe UI",system-ui,sans-serif';
+    ctx.fillStyle=mode.color;ctx.textAlign='center';
+    ctx.fillText(mode.emoji+' '+mode.label,28+62,rowY+30);
+    ctx.textAlign='left';
+
+    // 勝敗数
+    const sy=rowY+56;
+    ctx.font='12px "Segoe UI",system-ui,sans-serif';
+    ctx.fillStyle='#9399b2';ctx.fillText(bt+'試合',28,sy);
+    ctx.font='bold 13px "Segoe UI",system-ui,sans-serif';
+    ctx.fillStyle='#4caf50';ctx.fillText(bw+'勝',100,sy);
+    ctx.fillStyle='#ef5350';ctx.fillText((bt-bw)+'敗',150,sy);
+
+    // 大きい勝率
+    ctx.font='bold 42px "Segoe UI",system-ui,sans-serif';
+    ctx.fillStyle=bwr===null?'#5c6080':bwr>=50?'#4caf50':'#ef5350';
+    ctx.fillText(bwr!==null?bwr.toFixed(1)+'%':'— %',28,rowY+ROW_H-20);
+
+    // 勝率バー
+    const bx=28,by=rowY+ROW_H-11,bw2=LEFT_W-56,bh=5;
+    rr(bx,by,bw2,bh,2.5);ctx.fillStyle='#2e3250';ctx.fill();
+    if(bwr!==null&&bwr>0){
+      const barG=ctx.createLinearGradient(bx,0,bx+bw2,0);
+      barG.addColorStop(0,bwr>=50?'#4caf50':'#ef5350');
+      barG.addColorStop(1,bwr>=50?'#81c784':'#e57373');
+      rr(bx,by,Math.max(bw2*(bwr/100),bh),bh,2.5);
+      ctx.fillStyle=barG;ctx.fill();
+    }
+
+    // 縦区切り線
+    ctx.strokeStyle='#2e325055';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(DIV_X,rowY+10);ctx.lineTo(DIV_X,rowY+ROW_H-10);ctx.stroke();
+
+    // ---- 右：ポケモンTOP3 ----
+    if(!top3.length){
+      ctx.font='13px "Segoe UI",system-ui,sans-serif';
+      ctx.fillStyle='#5c6080';
+      ctx.fillText('ポケモン記録なし',RIGHT_X+10,rowY+ROW_H/2+5);
+    } else {
+      const ITEM_H=ROW_H/3;
+      top3.forEach((poke,pi)=>{
+        const iy=rowY+pi*ITEM_H;
+
+        // メダル
+        ctx.font='bold 15px sans-serif';
+        ctx.fillStyle=MEDAL_COLORS[pi];
+        ctx.fillText(MEDALS[pi],RIGHT_X+6,iy+ITEM_H/2+6);
+
+        // ポケモンアイコン
+        const img=pokeImgs[poke.name];
+        const ix2=RIGHT_X+36,iy2=iy+(ITEM_H-36)/2;
+        if(img){
+          ctx.save();rr(ix2-2,iy2-2,40,40,8);
+          ctx.fillStyle='#ffffff0a';ctx.fill();ctx.restore();
+          ctx.drawImage(img,ix2,iy2,36,36);
+        }
+
+        // ポケモン名
+        ctx.font='bold 14px "Segoe UI",system-ui,sans-serif';
+        ctx.fillStyle='#e8eaf6';
+        ctx.fillText(poke.name,RIGHT_X+82,iy+ITEM_H/2-3);
+
+        // 試合数
+        ctx.font='11px "Segoe UI",system-ui,sans-serif';
+        ctx.fillStyle='#9399b2';
+        ctx.fillText(poke.t+'試合 '+poke.w+'勝 '+(poke.t-poke.w)+'敗',RIGHT_X+82,iy+ITEM_H/2+13);
+
+        // 勝率（右寄せ）
+        ctx.font='bold 22px "Segoe UI",system-ui,sans-serif';
+        ctx.fillStyle=poke.wr>=50?'#4caf50':'#ef5350';
+        ctx.textAlign='right';
+        ctx.fillText(poke.wr.toFixed(1)+'%',W-36,iy+ITEM_H/2+8);
+        ctx.textAlign='left';
+
+        // 区切り点線
+        if(pi<top3.length-1){
+          ctx.strokeStyle='#2e325040';ctx.lineWidth=0.5;
+          ctx.setLineDash([4,4]);
+          ctx.beginPath();ctx.moveTo(RIGHT_X,iy+ITEM_H);ctx.lineTo(W-20,iy+ITEM_H);ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      });
+    }
+  });
+
+  // ===== フッター =====
+  const footY=H-38;
+  ctx.fillStyle='#1a1d27bb';ctx.fillRect(0,footY,W,38);
+  ctx.strokeStyle='#2e325060';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(0,footY);ctx.lineTo(W,footY);ctx.stroke();
+  ctx.font='13px "Segoe UI",system-ui,sans-serif';
+  ctx.fillStyle='#5c6080';ctx.textAlign='left';
+  ctx.fillText('#ポケモンユナイト  #ユナイト対戦記録  #PokémonUNITE',36,footY+24);
+  ctx.fillStyle='#2e3250';ctx.textAlign='right';
+  ctx.fillText('ユナイト対戦トラッカー',W-36,footY+24);
+  ctx.textAlign='left';
+
+  shareCanvas=canvas;
+  preview.innerHTML=`<img src="${canvas.toDataURL('image/png')}" style="width:100%;height:auto;display:block;" />`;
+}
+
+function downloadShareImage(){
+  if(!shareCanvas)return;
+  const a=document.createElement('a');
+  const now=new Date();
+  a.download=`unite-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.png`;
+  a.href=shareCanvas.toDataURL('image/png');a.click();
+}
+
+async function webShare(){
+  if(!shareCanvas)return;
+  shareCanvas.toBlob(async blob=>{
+    const file=new File([blob],'unite-tracker.png',{type:'image/png'});
+    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+      try{await navigator.share({files:[file],text:'#ポケモンユナイト #ユナイト対戦記録'});}
+      catch(e){}
+    } else {
+      downloadShareImage();
+    }
+  });
 }
 async function loadBattles(){
   if(!currentSeriesId)return;
