@@ -409,6 +409,12 @@
   .share-hint{font-size:11px;color:var(--text3);margin-top:8px;text-align:center;line-height:1.6;}
   .btn-share-icon{background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:var(--radius-sm);padding:5px 10px;font-size:14px;cursor:pointer;line-height:1;}
   .btn-share-icon:hover{border-color:var(--accent);color:var(--accent);}
+  .btn-x-post{background:#000;color:#fff;border:none;border-radius:var(--radius-sm);padding:9px;font-size:13px;font-weight:600;cursor:pointer;flex:1;}
+  .btn-x-post:hover{opacity:0.85;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .share-spinner{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2.5rem;gap:12px;}
+  .share-spinner-circle{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
+  .share-spinner-text{font-size:13px;color:var(--text3);}
 </style>
 <link rel="manifest" href="manifest.json" />
 </head>
@@ -778,7 +784,10 @@
       <div class="card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
           <div class="card-title" style="margin-bottom:0;">全シリーズ 通算成績</div>
-          <button class="btn-help" onclick="openHelp('total')">？</button>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <button class="btn-share-icon" onclick="openTotalShareModal()" title="通算成績をシェア">画像でシェア</button>
+            <button class="btn-help" onclick="openHelp('total')">？</button>
+          </div>
         </div>
         <div class="total-stat-grid">
           <div class="total-stat-box"><div class="total-stat-val" id="ttTotal">0</div><div class="total-stat-label">総試合数</div></div>
@@ -884,9 +893,10 @@
     <div style="display:flex;gap:8px;margin-top:12px;">
       <button class="btn-modal-ok" onclick="webShare()" style="flex:1;">📤 シェア / 保存</button>
       <button class="btn-modal-cancel" onclick="downloadShareImage()" style="flex:1;">💾 ダウンロード</button>
+      <button class="btn-x-post" onclick="postToX()">𝕏 でポスト</button>
     </div>
     <div class="share-hint">
-      PCの場合はダウンロード後にXへ手動投稿 / スマホはシェアボタンから直接共有できます
+      スマホ：「シェア / 保存」でXアプリへ直接共有 / PC：「ダウンロード」後に添付 または「𝕏 でポスト」でテキスト投稿
     </div>
   </div>
 </div>
@@ -1562,6 +1572,21 @@ function showPage(page){
 // ---- 更新履歴 ----
 // ★ 新しい更新を追加するときはこのリストの先頭に追加してください
 const CHANGELOG = [
+  {
+    version: 'v2.4',
+    date: '2025-05-12',
+    items: [
+      'シェア画像生成中にスピナーを表示（生成完了まで視覚フィードバック）',
+      'シェアテキストにシリーズ名・試合数・勝率・主力ポケモンを自動で含めるよう改善',
+      'シェアテキストにアプリURLを追加（拡散時の流入導線）',
+      '「𝕏 でポスト」ボタンを追加（PCでもワンクリックでX投稿画面を開ける）',
+      'PC環境でシェアボタン押下時、画像DLと同時にX投稿ウィンドウを自動で開くよう改善',
+      'Web Share APIのユーザーキャンセルと実エラーを区別してハンドリング',
+      '分析ページ「通算成績」タブにシェアボタンを追加（全シリーズ集計をシェア可能に）',
+      'Canvas toDataURLのキャッシュ化でDL・シェア時の重複描画を解消',
+      'シェアモーダルを開くたびに古い画像が残る不具合を修正',
+    ]
+  },
   {
     version: 'v2.3',
     date: '2025-05-12',
@@ -2511,24 +2536,67 @@ if('serviceWorker' in navigator){
 }
 
 // ---- シェア画像生成 ----
+const APP_URL='https://36odi.github.io/pokemon-unite-tracker/';
 let shareCanvas=null;
+let shareDataUrl=null;
+
+function buildShareText(titleLabel,battlesData){
+  const sName=titleLabel||document.getElementById('statsTitle')?.textContent||'';
+  const data=battlesData||battles;
+  const w=data.filter(b=>b.result==='win').length;
+  const t=data.length;
+  const wr=t>0?(w/t*100).toFixed(1):null;
+  const pm={};
+  data.filter(b=>b.pokemon).forEach(b=>{
+    if(!pm[b.pokemon])pm[b.pokemon]={w:0,l:0};
+    b.result==='win'?pm[b.pokemon].w++:pm[b.pokemon].l++;
+  });
+  const top=Object.entries(pm).sort((a,b)=>(b[1].w+b[1].l)-(a[1].w+a[1].l))[0];
+  let text=sName?`【${sName}】`:'';
+  if(wr!==null)text+=` ${t}試合 勝率${wr}%`;
+  if(top)text+=` 主力: ${top[0]}`;
+  text+='\n#ポケモンユナイト #ユナイト対戦記録\n'+APP_URL;
+  return text;
+}
 
 function openShareModal(){
   if(!currentSeriesId||!battles.length)return;
+  shareCanvas=null;shareDataUrl=null;
+  const preview=document.getElementById('sharePreview');
+  preview.innerHTML='<div class="share-spinner"><div class="share-spinner-circle"></div><div class="share-spinner-text">画像を生成中...</div></div>';
   document.getElementById('shareModal').classList.add('open');
-  setTimeout(generateShareImage,50);
+  generateShareImage();
 }
 
-async function generateShareImage(){
+function openTotalShareModal(){
+  if(!allSeriesData||!allSeriesData.length)return;
+  const allBattles=allSeriesData.flatMap(s=>s.battles);
+  if(!allBattles.length)return;
+  shareCanvas=null;shareDataUrl=null;
   const preview=document.getElementById('sharePreview');
-  preview.innerHTML='<div style="padding:2rem;text-align:center;color:var(--text3);font-size:13px;">画像を生成中...</div>';
+  preview.innerHTML='<div class="share-spinner"><div class="share-spinner-circle"></div><div class="share-spinner-text">画像を生成中...</div></div>';
+  document.getElementById('shareModal').classList.add('open');
+  generateShareImage(allBattles,'通算成績');
+}
 
-  const seriesName=document.getElementById('statsTitle').textContent;
-  const solo=battles.filter(b=>b.match_type==='solo');
-  const duo=battles.filter(b=>b.match_type==='duo');
-  const full=battles.filter(b=>b.match_type==='full');
+function postToX(){
+  const titleLabel=document.getElementById('shareModal').dataset.titleLabel||undefined;
+  const text=buildShareText(titleLabel);
+  window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent(text),'_blank','noopener,noreferrer');
+}
+
+async function generateShareImage(battlesData,titleLabel){
+  const preview=document.getElementById('sharePreview');
+  battlesData=battlesData||battles;
+  titleLabel=titleLabel||document.getElementById('statsTitle').textContent;
+  document.getElementById('shareModal').dataset.titleLabel=titleLabel;
+
+  const seriesName=titleLabel;
+  const solo=battlesData.filter(b=>b.match_type==='solo');
+  const duo=battlesData.filter(b=>b.match_type==='duo');
+  const full=battlesData.filter(b=>b.match_type==='full');
   const cs=list=>{const w=list.filter(b=>b.result==='win').length,t=list.length;return{w,l:t-w,t,wr:t>0?w/t*100:null};};
-  const tS=cs(battles);
+  const tS=cs(battlesData);
   const modes=[
     {label:'ソロ',         emoji:'🎮',color:'#7c83f5',badgeBg:'#1e2040',...cs(solo)},
     {label:'デュオ/トリオ',emoji:'👥',color:'#ffa726',badgeBg:'#2e2010',...cs(duo)},
@@ -2550,7 +2618,7 @@ async function generateShareImage(){
     }
     return entries.sort((a,b)=>b.wr-a.wr||(b.t-a.t)).slice(0,3);
   };
-  const top3=getTop3(battles);
+  const top3=getTop3(battlesData);
 
   const loadImg=url=>new Promise(res=>{const img=new Image();img.crossOrigin='anonymous';img.onload=()=>res(img);img.onerror=()=>res(null);img.src=url;setTimeout(()=>res(null),4000);});
   const pokeImgs={};
@@ -2646,23 +2714,25 @@ async function generateShareImage(){
     ctx.fillStyle=mode.badgeBg;ctx.fill();ctx.strokeStyle=mode.color+'66';ctx.lineWidth=1;ctx.stroke();
     ctx.font='bold 13px "Segoe UI",system-ui,sans-serif';ctx.fillStyle=mode.color;ctx.textAlign='center';
     ctx.fillText(mode.emoji+' '+mode.label,PAD+8+BADGE_W/2,midY+5);ctx.textAlign='left';
-    // 勝利 / 敗北
-    const NX=PAD+8+BADGE_W+22;
-    ctx.font='13px "Segoe UI",system-ui,sans-serif';ctx.fillStyle='#5c6080';
-    ctx.fillText('勝利',NX,midY-12);ctx.fillText('敗北',NX+68,midY-12);
+    // 勝利・敗北・勝率を均等3列配置
+    const COL_START=PAD+8+BADGE_W+8;
+    const RIGHT_EDGE=HALF-PAD-8;
+    const COL_W=Math.floor((RIGHT_EDGE-COL_START)/3);
+    const C1=COL_START+Math.floor(COL_W/2);
+    const C2=C1+COL_W;
+    const C3=C2+COL_W;
+    ctx.textAlign='center';
+    ctx.font='12px "Segoe UI",system-ui,sans-serif';ctx.fillStyle='#5c6080';
+    ctx.fillText('勝利',C1,midY-12);ctx.fillText('敗北',C2,midY-12);ctx.fillText('勝率',C3,midY-12);
     ctx.font='bold 26px "Segoe UI",system-ui,sans-serif';
-    ctx.fillStyle='#4caf50';ctx.fillText(String(mode.w),NX,midY+13);
-    ctx.fillStyle='#ef5350';ctx.fillText(String(mode.l),NX+68,midY+13);
-    // 勝率：ラベル左寄せ・値は右端に右揃え
-    const WR_LX=NX+148,RIGHT_EDGE=HALF-PAD-8;
-    ctx.font='13px "Segoe UI",system-ui,sans-serif';ctx.fillStyle='#5c6080';ctx.fillText('勝率',WR_LX,midY-12);
-    ctx.font='bold 32px "Segoe UI",system-ui,sans-serif';
+    ctx.fillStyle='#4caf50';ctx.fillText(String(mode.w),C1,midY+13);
+    ctx.fillStyle='#ef5350';ctx.fillText(String(mode.l),C2,midY+13);
+    ctx.font='bold 30px "Segoe UI",system-ui,sans-serif';
     ctx.fillStyle=mode.wr===null?'#4a4e6a':mode.wr>=50?'#4caf50':'#ef5350';
-    ctx.textAlign='right';
-    ctx.fillText(mode.wr!==null?mode.wr.toFixed(1)+'%':'—',RIGHT_EDGE,midY+14);
+    ctx.fillText(mode.wr!==null?mode.wr.toFixed(1)+'%':'—',C3,midY+15);
     ctx.textAlign='left';
     if(mode.wr!==null){
-      const bX=WR_LX,bY=ry+RH-8,bW=RIGHT_EDGE-WR_LX,bH=4;
+      const bX=COL_START+COL_W*2,bY=ry+RH-8,bW=RIGHT_EDGE-bX,bH=4;
       rr(bX,bY,bW,bH,2);ctx.fillStyle='#2e3250';ctx.fill();
       const g=ctx.createLinearGradient(bX,0,bX+bW,0);
       g.addColorStop(0,mode.wr>=50?'#4caf50':'#ef5350');g.addColorStop(1,mode.wr>=50?'#81c784':'#e57373');
@@ -2718,26 +2788,36 @@ async function generateShareImage(){
   ctx.fillStyle='#3a3e60';ctx.textAlign='right';ctx.fillText('by 36無職おぢ @36musyokuodi',W-32,footY+26);ctx.textAlign='left';
 
   shareCanvas=canvas;
-  preview.innerHTML=`<img src="${canvas.toDataURL('image/png')}" style="width:100%;height:auto;display:block;" />`;
+  shareDataUrl=canvas.toDataURL('image/png');
+  preview.innerHTML=`<img src="${shareDataUrl}" style="width:100%;height:auto;display:block;" />`;
 }
 
 function downloadShareImage(){
-  if(!shareCanvas)return;
+  if(!shareDataUrl)return;
   const a=document.createElement('a');
   const now=new Date();
   a.download=`unite-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.png`;
-  a.href=shareCanvas.toDataURL('image/png');a.click();
+  a.href=shareDataUrl;a.click();
 }
 
 async function webShare(){
   if(!shareCanvas)return;
+  const titleLabel=document.getElementById('shareModal').dataset.titleLabel||undefined;
+  const text=buildShareText(titleLabel);
   shareCanvas.toBlob(async blob=>{
     const file=new File([blob],'unite-tracker.png',{type:'image/png'});
     if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
-      try{await navigator.share({files:[file],text:'#ポケモンユナイト #ユナイト対戦記録'});}
-      catch(e){}
+      try{await navigator.share({files:[file],text});}
+      catch(e){
+        // ユーザーキャンセル(AbortError)はフォールバックしない
+        if(e.name!=='AbortError') downloadShareImage();
+      }
     } else {
+      // PC環境: 画像DL + X投稿ウィンドウを開く
       downloadShareImage();
+      setTimeout(()=>{
+        window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent(text),'_blank','noopener,noreferrer');
+      },400);
     }
   });
 }
