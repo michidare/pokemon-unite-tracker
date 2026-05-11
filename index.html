@@ -2640,27 +2640,29 @@ async function generateShareImage(){
     const ry=MODE_TOP+mi*MRH,RH=MRH-5;
     rr(PAD,ry,LW,RH,8);ctx.fillStyle='#1a1d27';ctx.fill();ctx.strokeStyle='#2e3250';ctx.lineWidth=1;ctx.stroke();
     const midY=ry+RH/2;
-    const BADGE_W=108,BADGE_H=28;
+    const BADGE_W=108,BADGE_H=30;
     // バッジ
-    rr(PAD+8,midY-BADGE_H/2,BADGE_W,BADGE_H,14);
+    rr(PAD+8,midY-BADGE_H/2,BADGE_W,BADGE_H,15);
     ctx.fillStyle=mode.badgeBg;ctx.fill();ctx.strokeStyle=mode.color+'66';ctx.lineWidth=1;ctx.stroke();
     ctx.font='bold 13px "Segoe UI",system-ui,sans-serif';ctx.fillStyle=mode.color;ctx.textAlign='center';
-    ctx.fillText(mode.emoji+' '+mode.label,PAD+8+BADGE_W/2,midY+4);ctx.textAlign='left';
+    ctx.fillText(mode.emoji+' '+mode.label,PAD+8+BADGE_W/2,midY+5);ctx.textAlign='left';
     // 勝利 / 敗北
-    const NX=PAD+8+BADGE_W+16;
-    ctx.font='12px "Segoe UI",system-ui,sans-serif';ctx.fillStyle='#5c6080';
-    ctx.fillText('勝利',NX,midY-10);ctx.fillText('敗北',NX+56,midY-10);
-    ctx.font='bold 22px "Segoe UI",system-ui,sans-serif';
-    ctx.fillStyle='#4caf50';ctx.fillText(String(mode.w),NX,midY+12);
-    ctx.fillStyle='#ef5350';ctx.fillText(String(mode.l),NX+56,midY+12);
-    // 勝率 + バー
-    const WRX=NX+110,WRW=HALF-PAD-WRX-8;
-    ctx.font='12px "Segoe UI",system-ui,sans-serif';ctx.fillStyle='#5c6080';ctx.fillText('勝率',WRX,midY-10);
-    ctx.font='bold 24px "Segoe UI",system-ui,sans-serif';
+    const NX=PAD+8+BADGE_W+22;
+    ctx.font='13px "Segoe UI",system-ui,sans-serif';ctx.fillStyle='#5c6080';
+    ctx.fillText('勝利',NX,midY-12);ctx.fillText('敗北',NX+68,midY-12);
+    ctx.font='bold 26px "Segoe UI",system-ui,sans-serif';
+    ctx.fillStyle='#4caf50';ctx.fillText(String(mode.w),NX,midY+13);
+    ctx.fillStyle='#ef5350';ctx.fillText(String(mode.l),NX+68,midY+13);
+    // 勝率：ラベル左寄せ・値は右端に右揃え
+    const WR_LX=NX+148,RIGHT_EDGE=HALF-PAD-8;
+    ctx.font='13px "Segoe UI",system-ui,sans-serif';ctx.fillStyle='#5c6080';ctx.fillText('勝率',WR_LX,midY-12);
+    ctx.font='bold 32px "Segoe UI",system-ui,sans-serif';
     ctx.fillStyle=mode.wr===null?'#4a4e6a':mode.wr>=50?'#4caf50':'#ef5350';
-    ctx.fillText(mode.wr!==null?mode.wr.toFixed(1)+'%':'—',WRX,midY+10);
+    ctx.textAlign='right';
+    ctx.fillText(mode.wr!==null?mode.wr.toFixed(1)+'%':'—',RIGHT_EDGE,midY+14);
+    ctx.textAlign='left';
     if(mode.wr!==null){
-      const bX=WRX,bY=ry+RH-8,bW=WRW,bH=4;
+      const bX=WR_LX,bY=ry+RH-8,bW=RIGHT_EDGE-WR_LX,bH=4;
       rr(bX,bY,bW,bH,2);ctx.fillStyle='#2e3250';ctx.fill();
       const g=ctx.createLinearGradient(bX,0,bX+bW,0);
       g.addColorStop(0,mode.wr>=50?'#4caf50':'#ef5350');g.addColorStop(1,mode.wr>=50?'#81c784':'#e57373');
