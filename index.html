@@ -2537,10 +2537,20 @@ async function generateShareImage(){
       if(!map[b.pokemon])map[b.pokemon]={w:0,l:0};
       b.result==='win'?map[b.pokemon].w++:map[b.pokemon].l++;
     });
-    return Object.entries(map)
+    // 最低試合数：モード全体の5%（最低3試合）を満たすポケモンのみ対象
+    const minT=Math.max(3,Math.ceil(list.length*0.05));
+    const entries=Object.entries(map)
       .map(([name,s])=>({name,w:s.w,t:s.w+s.l,wr:s.w/(s.w+s.l)*100}))
-      .sort((a,b)=>b.wr-a.wr||(b.t-a.t))
-      .slice(0,3);
+      .filter(p=>p.t>=minT);
+    // 閾値を満たすポケモンが3未満の場合は条件を緩めて試合数が多い順に補完
+    if(entries.length<3){
+      const all=Object.entries(map)
+        .map(([name,s])=>({name,w:s.w,t:s.w+s.l,wr:s.w/(s.w+s.l)*100}))
+        .sort((a,b)=>b.t-a.t||b.wr-a.wr);
+      const names=new Set(entries.map(e=>e.name));
+      for(const p of all){if(!names.has(p.name)){entries.push(p);names.add(p.name);}if(entries.length>=3)break;}
+    }
+    return entries.sort((a,b)=>b.wr-a.wr||(b.t-a.t)).slice(0,3);
   };
 
   // ポケモン画像プリロード
@@ -2653,7 +2663,7 @@ async function generateShareImage(){
     // 大きい勝率
     ctx.font='bold 42px "Segoe UI",system-ui,sans-serif';
     ctx.fillStyle=bwr===null?'#5c6080':bwr>=50?'#4caf50':'#ef5350';
-    ctx.fillText(bwr!==null?bwr.toFixed(1)+'%':'— %',28,rowY+ROW_H-20);
+    ctx.fillText(bwr!==null?bwr.toFixed(1)+'%':'—',28,rowY+ROW_H-20);
 
     // 勝率バー
     const bx=28,by=rowY+ROW_H-11,bw2=LEFT_W-56,bh=5;
