@@ -2556,7 +2556,7 @@ async function generateShareImage(){
   const pokeImgs={};
   await Promise.all(top3.map(async p=>{const url=getIconUrl(p.name);if(url)pokeImgs[p.name]=await loadImg(url);}));
 
-  const W=1200,H=630,HALF=600;
+  const W=1200,H=560,HALF=600;
   const canvas=document.createElement('canvas');
   canvas.width=W;canvas.height=H;
   const ctx=canvas.getContext('2d');
@@ -2606,7 +2606,7 @@ async function generateShareImage(){
   ctx.fillText('— '+fitText(seriesName,LW-52,snFont),PAD+34,CONTENT_TOP+14);
 
   // 4つの統計ボックス
-  const STAT_TOP=CONTENT_TOP+24,STAT_H=88;
+  const STAT_TOP=CONTENT_TOP+24,STAT_H=80;
   const sg=8,sw=Math.floor((LW-sg*3)/4);
   const stats4=[
     {label:'試合数',val:String(tS.t),color:'#e8eaf6'},
@@ -2617,10 +2617,10 @@ async function generateShareImage(){
   stats4.forEach((s,i)=>{
     const bx=PAD+i*(sw+sg);
     rr(bx,STAT_TOP,sw,STAT_H,8);ctx.fillStyle='#1a1d27';ctx.fill();ctx.strokeStyle='#2e3250';ctx.lineWidth=1;ctx.stroke();
-    ctx.font='11px "Segoe UI",system-ui,sans-serif';ctx.fillStyle='#5c6080';ctx.textAlign='center';
-    ctx.fillText(s.label,bx+sw/2,STAT_TOP+18);
-    ctx.font='bold 26px "Segoe UI",system-ui,sans-serif';ctx.fillStyle=s.color;
-    ctx.fillText(s.val,bx+sw/2,STAT_TOP+56);
+    ctx.font='12px "Segoe UI",system-ui,sans-serif';ctx.fillStyle='#5c6080';ctx.textAlign='center';
+    ctx.fillText(s.label,bx+sw/2,STAT_TOP+17);
+    ctx.font='bold 28px "Segoe UI",system-ui,sans-serif';ctx.fillStyle=s.color;
+    ctx.fillText(s.val,bx+sw/2,STAT_TOP+52);
     ctx.textAlign='left';
     if(s.label==='勝率'&&tS.wr!==null){
       const bX=bx+8,bY=STAT_TOP+STAT_H-10,bW=sw-16,bH=4;
@@ -2644,19 +2644,19 @@ async function generateShareImage(){
     // バッジ
     rr(PAD+8,midY-BADGE_H/2,BADGE_W,BADGE_H,14);
     ctx.fillStyle=mode.badgeBg;ctx.fill();ctx.strokeStyle=mode.color+'66';ctx.lineWidth=1;ctx.stroke();
-    ctx.font='bold 12px "Segoe UI",system-ui,sans-serif';ctx.fillStyle=mode.color;ctx.textAlign='center';
+    ctx.font='bold 13px "Segoe UI",system-ui,sans-serif';ctx.fillStyle=mode.color;ctx.textAlign='center';
     ctx.fillText(mode.emoji+' '+mode.label,PAD+8+BADGE_W/2,midY+4);ctx.textAlign='left';
     // 勝利 / 敗北
     const NX=PAD+8+BADGE_W+16;
-    ctx.font='11px "Segoe UI",system-ui,sans-serif';ctx.fillStyle='#5c6080';
-    ctx.fillText('勝利',NX,midY-8);ctx.fillText('敗北',NX+52,midY-8);
-    ctx.font='bold 20px "Segoe UI",system-ui,sans-serif';
-    ctx.fillStyle='#4caf50';ctx.fillText(String(mode.w),NX,midY+10);
-    ctx.fillStyle='#ef5350';ctx.fillText(String(mode.l),NX+52,midY+10);
-    // 勝率 + バー
-    const WRX=NX+106,WRW=HALF-PAD-WRX-8;
-    ctx.font='11px "Segoe UI",system-ui,sans-serif';ctx.fillStyle='#5c6080';ctx.fillText('勝率',WRX,midY-8);
+    ctx.font='12px "Segoe UI",system-ui,sans-serif';ctx.fillStyle='#5c6080';
+    ctx.fillText('勝利',NX,midY-10);ctx.fillText('敗北',NX+56,midY-10);
     ctx.font='bold 22px "Segoe UI",system-ui,sans-serif';
+    ctx.fillStyle='#4caf50';ctx.fillText(String(mode.w),NX,midY+12);
+    ctx.fillStyle='#ef5350';ctx.fillText(String(mode.l),NX+56,midY+12);
+    // 勝率 + バー
+    const WRX=NX+110,WRW=HALF-PAD-WRX-8;
+    ctx.font='12px "Segoe UI",system-ui,sans-serif';ctx.fillStyle='#5c6080';ctx.fillText('勝率',WRX,midY-10);
+    ctx.font='bold 24px "Segoe UI",system-ui,sans-serif';
     ctx.fillStyle=mode.wr===null?'#4a4e6a':mode.wr>=50?'#4caf50':'#ef5350';
     ctx.fillText(mode.wr!==null?mode.wr.toFixed(1)+'%':'—',WRX,midY+10);
     if(mode.wr!==null){
@@ -2688,19 +2688,19 @@ async function generateShareImage(){
       rr(RX,cy,RW,PCH,10);ctx.fillStyle='#1a1d27';ctx.fill();ctx.strokeStyle=MEDAL_COLORS[pi]+'40';ctx.lineWidth=1;ctx.stroke();
       rr(RX,cy,4,PCH,2);ctx.fillStyle=MEDAL_COLORS[pi];ctx.fill();
       const midY=cy+PCH/2;
-      ctx.font='22px sans-serif';ctx.textAlign='left';ctx.fillText(MEDALS[pi],RX+12,cy+26);
+      ctx.font='24px sans-serif';ctx.textAlign='left';ctx.fillText(MEDALS[pi],RX+12,cy+28);
       const ISZ=Math.min(PCH-20,52);
       const IX=RX+10,IY=midY-ISZ/2;
       const img=pokeImgs[poke.name];
       if(img){ctx.save();rr(IX,IY,ISZ,ISZ,8);ctx.fillStyle='#ffffff0a';ctx.fill();ctx.restore();ctx.drawImage(img,IX,IY,ISZ,ISZ);}
       const TX=RX+ISZ+22,nameMaxW=RW-ISZ-90;
-      ctx.font='bold 18px "Segoe UI",system-ui,sans-serif';ctx.fillStyle='#e8eaf6';ctx.textAlign='left';
-      ctx.fillText(fitText(poke.name,nameMaxW,'bold 18px "Segoe UI",system-ui,sans-serif'),TX,midY-4);
-      ctx.font='14px "Segoe UI",system-ui,sans-serif';ctx.fillStyle='#7c83b5';
-      ctx.fillText(`${poke.t}試合  ${poke.w}勝  ${poke.t-poke.w}敗`,TX,midY+15);
-      ctx.font='bold 24px "Segoe UI",system-ui,sans-serif';
+      ctx.font='bold 20px "Segoe UI",system-ui,sans-serif';ctx.fillStyle='#e8eaf6';ctx.textAlign='left';
+      ctx.fillText(fitText(poke.name,nameMaxW,'bold 20px "Segoe UI",system-ui,sans-serif'),TX,midY-5);
+      ctx.font='15px "Segoe UI",system-ui,sans-serif';ctx.fillStyle='#7c83b5';
+      ctx.fillText(`${poke.t}試合  ${poke.w}勝  ${poke.t-poke.w}敗`,TX,midY+16);
+      ctx.font='bold 26px "Segoe UI",system-ui,sans-serif';
       ctx.fillStyle=poke.wr>=50?'#4caf50':'#ef5350';ctx.textAlign='right';
-      ctx.fillText(poke.wr.toFixed(1)+'%',RX+RW-12,midY+8);ctx.textAlign='left';
+      ctx.fillText(poke.wr.toFixed(1)+'%',RX+RW-12,midY+9);ctx.textAlign='left';
       const bX=TX,bY=cy+PCH-8,bW=RW-ISZ-30,bH=3;
       rr(bX,bY,bW,bH,1);ctx.fillStyle='#2e3250';ctx.fill();
       rr(bX,bY,Math.max(bW*(poke.wr/100),3),bH,1);ctx.fillStyle=poke.wr>=50?'#4caf50':'#ef5350';ctx.fill();
@@ -2713,7 +2713,7 @@ async function generateShareImage(){
   ctx.strokeStyle='#2e325050';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,footY);ctx.lineTo(W,footY);ctx.stroke();
   ctx.font='12px "Segoe UI",system-ui,sans-serif';ctx.fillStyle='#4a4e6a';ctx.textAlign='left';
   ctx.fillText('#ポケモンユナイト  #ユナイト対戦記録  #PokémonUNITE',32,footY+26);
-  ctx.fillStyle='#3a3e60';ctx.textAlign='right';ctx.fillText('ユナイト対戦トラッカー',W-32,footY+26);ctx.textAlign='left';
+  ctx.fillStyle='#3a3e60';ctx.textAlign='right';ctx.fillText('by 36無職おぢ @36musyokuodi',W-32,footY+26);ctx.textAlign='left';
 
   shareCanvas=canvas;
   preview.innerHTML=`<img src="${canvas.toDataURL('image/png')}" style="width:100%;height:auto;display:block;" />`;
