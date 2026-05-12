@@ -3681,7 +3681,11 @@ async function renderSeriesAnalysis(){
   const parseItems=(v)=>{
     if(!v)return[];
     if(Array.isArray(v))return v;
-    try{const p=JSON.parse(v);return Array.isArray(p)?p:[];}catch{return[];}
+    if(typeof v==='string'){
+      try{const p=JSON.parse(v);return Array.isArray(p)?p:[];}catch{}
+      return v.split(',').filter(Boolean); // CSV形式フォールバック
+    }
+    return[];
   };
   const itemMap={};
   bs.forEach(b=>{
