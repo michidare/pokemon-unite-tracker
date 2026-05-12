@@ -3357,6 +3357,7 @@ let seriesSortMode='date';
 let isRecording=false;
 let currentSeriesArchived=false;
 let seriesanalChartInst=null;
+let seriesanalDayChartInst=null;
 let streakOpen=false;
 
 // ===== U2 テーマ切替 =====
@@ -3535,12 +3536,38 @@ async function renderSeriesAnalysis(){
   const bs=s.battles;
   if(!bs.length){content.innerHTML='<div class="empty">このシリーズに記録がありません</div>';return;}
 
+  // チャートを先に破棄
+  if(seriesanalChartInst){seriesanalChartInst.destroy();seriesanalChartInst=null;}
+  if(seriesanalDayChartInst){seriesanalDayChartInst.destroy();seriesanalDayChartInst=null;}
+
   const w=bs.filter(b=>b.result==='win').length;
   const t=bs.length;
   const wr=t>0?((w/t)*100).toFixed(1)+'%':'—';
   const wrCol=t>0?(parseFloat(wr)>=50?'var(--win)':'var(--loss)'):'var(--text2)';
 
-  // ポケモン使用頻度集計
+  // ── ヘルパー ──
+  const modeWR=(arr,mode)=>{
+    const m=mode==='all'?arr:arr.filter(b=>b.match_type===mode);
+    if(!m.length)return'—';
+    const mw=m.filter(b=>b.result==='win').length;
+    return ((mw/m.length)*100).toFixed(1)+'%';
+  };
+  const wrColor=(str)=>{
+    if(str==='—')return'var(--text3)';
+    return parseFloat(str)>=50?'var(--win)':'var(--loss)';
+  };
+  const makeAccordion=(title,bodyHTML)=>`
+    <div class="poke-mode-block" style="margin-bottom:8px;">
+      <div class="poke-mode-header" onclick="const b=this.nextElementSibling;b.classList.toggle('open');this.querySelector('.poke-mode-arrow').classList.toggle('open');">
+        <span style="font-size:12px;font-weight:600;">${title}</span>
+        <span class="poke-mode-arrow">▼</span>
+      </div>
+      <div class="poke-mode-body">${bodyHTML}</div>
+    </div>`;
+  const tblHead=(cols)=>`<thead><tr style="color:var(--text3);border-bottom:1px solid var(--border);">${cols.map(c=>`<th style="padding:4px 6px;white-space:nowrap;${c.left?'text-align:left;':''}">${c.label}</th>`).join('')}</tr></thead>`;
+  const tblWrap=(inner)=>`<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">${inner}</table></div>`;
+
+  // ── ポケモン使用頻度集計 ──
   const pokeMap={};
   bs.filter(b=>b.pokemon).forEach(b=>{
     if(!pokeMap[b.pokemon])pokeMap[b.pokemon]={w:0,l:0};
@@ -3548,6 +3575,151 @@ async function renderSeriesAnalysis(){
   });
   const pokeList=Object.entries(pokeMap).sort((a,b)=>(b[1].w+b[1].l)-(a[1].w+a[1].l)).slice(0,12);
 
+  // ── B1: ランク帯別勝率 ──
+  const rankMap={};
+  bs.filter(b=>b.rank).forEach(b=>{
+    if(!rankMap[b.rank])rankMap[b.rank]=[];
+    rankMap[b.rank].push(b);
+  });
+  const b1Rows=RANKS.filter(r=>rankMap[r]).map(r=>{
+    const arr=rankMap[r];
+    const rw=arr.filter(b=>b.result==='win').length;
+    const rt=arr.length;
+    const rwr=((rw/rt)*100).toFixed(1)+'%';
+    const swr=modeWR(arr,'solo'),dwr=modeWR(arr,'duo'),fwr=modeWR(arr,'full');
+    return `<tr>
+      <td style="padding:4px 6px;">${rankBadge(r)}</td>
+      <td style="padding:4px 6px;text-align:center;">${rt}</td>
+      <td style="padding:4px 6px;text-align:center;">${rw}</td>
+      <td style="padding:4px 6px;text-align:center;">${rt-rw}</td>
+      <td style="padding:4px 6px;text-align:center;color:${wrColor(rwr)}">${rwr}</td>
+      <td style="padding:4px 6px;text-align:center;color:${wrColor(swr)}">${swr}</td>
+      <td style="padding:4px 6px;text-align:center;color:${wrColor(dwr)}">${dwr}</td>
+      <td style="padding:4px 6px;text-align:center;color:${wrColor(fwr)}">${fwr}</td>
+    </tr>`;
+  }).join('');
+  const b1HTML=b1Rows?tblWrap(tblHead([
+    {label:'ランク帯',left:true},{label:'試合'},{label:'勝'},{label:'敗'},
+    {label:'勝率'},{label:'ソロ'},{label:'デュオ'},{label:'フルパ'}
+  ])+`<tbody>${b1Rows}</tbody>`):'<div class="empty" style="padding:0.8rem 0;">ランク記録なし</div>';
+
+  // ── B2: ランク帯×ポケモン別勝率 ──
+  const b2Sections=RANKS.filter(r=>rankMap[r]).map(r=>{
+    const rarr=rankMap[r];
+    const rpMap={};
+    rarr.filter(b=>b.pokemon).forEach(b=>{
+      if(!rpMap[b.pokemon])rpMap[b.pokemon]=[];
+      rpMap[b.pokemon].push(b);
+    });
+    const rpList=Object.entries(rpMap).sort((a,b)=>b[1].length-a[1].length);
+    if(!rpList.length)return'';
+    const rows=rpList.map(([name,arr])=>{
+      const rw=arr.filter(b=>b.result==='win').length;
+      const rt=arr.length;
+      const rwr=((rw/rt)*100).toFixed(1)+'%';
+      const swr=modeWR(arr,'solo'),dwr=modeWR(arr,'duo'),fwr=modeWR(arr,'full');
+      return `<tr>
+        <td style="padding:4px 6px;"><div style="display:flex;align-items:center;gap:4px;">${iconImg(name,'',16)}<span>${name}</span></div></td>
+        <td style="padding:4px 6px;text-align:center;">${rt}</td>
+        <td style="padding:4px 6px;text-align:center;">${rw}</td>
+        <td style="padding:4px 6px;text-align:center;color:${wrColor(rwr)}">${rwr}</td>
+        <td style="padding:4px 6px;text-align:center;color:${wrColor(swr)}">${swr}</td>
+        <td style="padding:4px 6px;text-align:center;color:${wrColor(dwr)}">${dwr}</td>
+        <td style="padding:4px 6px;text-align:center;color:${wrColor(fwr)}">${fwr}</td>
+      </tr>`;
+    }).join('');
+    return `<div style="margin-bottom:10px;">
+      <div style="font-size:11px;color:var(--text3);padding:4px 0 2px;">${rankBadge(r)}</div>
+      ${tblWrap(tblHead([
+        {label:'ポケモン',left:true},{label:'試合'},{label:'勝'},
+        {label:'勝率'},{label:'ソロ'},{label:'デュオ'},{label:'フルパ'}
+      ])+`<tbody>${rows}</tbody>`)}
+    </div>`;
+  }).join('');
+  const b2HTML=b2Sections||'<div class="empty" style="padding:0.8rem 0;">ランク記録なし</div>';
+
+  // ── B3: 技セット別勝率 ──
+  const skillMap={};
+  bs.filter(b=>b.skill1||b.skill2).forEach(b=>{
+    const key=(b.skill1||'—')+' / '+(b.skill2||'—');
+    if(!skillMap[key])skillMap[key]=[];
+    skillMap[key].push(b);
+  });
+  const skillList=Object.entries(skillMap).sort((a,b)=>b[1].length-a[1].length).slice(0,15);
+  const b3Rows=skillList.map(([key,arr])=>{
+    const sw=arr.filter(b=>b.result==='win').length;
+    const st=arr.length;
+    const swr=((sw/st)*100).toFixed(1)+'%';
+    return `<tr>
+      <td style="padding:4px 6px;">${key}</td>
+      <td style="padding:4px 6px;text-align:center;">${st}</td>
+      <td style="padding:4px 6px;text-align:center;">${sw}</td>
+      <td style="padding:4px 6px;text-align:center;">${st-sw}</td>
+      <td style="padding:4px 6px;text-align:center;color:${wrColor(swr)}">${swr}</td>
+    </tr>`;
+  }).join('');
+  const b3HTML=b3Rows?tblWrap(tblHead([
+    {label:'技セット',left:true},{label:'試合'},{label:'勝'},{label:'敗'},{label:'勝率'}
+  ])+`<tbody>${b3Rows}</tbody>`):'<div class="empty" style="padding:0.8rem 0;">技記録なし</div>';
+
+  // ── B4: アイテム別勝率 ──
+  const itemMap={};
+  bs.filter(b=>b.items&&b.items.length).forEach(b=>{
+    b.items.forEach(item=>{
+      if(!item)return;
+      if(!itemMap[item])itemMap[item]=[];
+      itemMap[item].push(b);
+    });
+  });
+  const itemList=Object.entries(itemMap).sort((a,b)=>b[1].length-a[1].length).slice(0,15);
+  const baMap={};
+  bs.filter(b=>b.battle_item).forEach(b=>{
+    if(!baMap[b.battle_item])baMap[b.battle_item]=[];
+    baMap[b.battle_item].push(b);
+  });
+  const baList=Object.entries(baMap).sort((a,b)=>b[1].length-a[1].length);
+  const makeItemTable=(list)=>{
+    if(!list.length)return'<div class="empty" style="padding:0.5rem 0;">記録なし</div>';
+    const rows=list.map(([item,arr])=>{
+      const iw=arr.filter(b=>b.result==='win').length;
+      const it=arr.length;
+      const iwr=((iw/it)*100).toFixed(1)+'%';
+      return `<tr>
+        <td style="padding:4px 6px;">${item}</td>
+        <td style="padding:4px 6px;text-align:center;">${it}</td>
+        <td style="padding:4px 6px;text-align:center;">${iw}</td>
+        <td style="padding:4px 6px;text-align:center;">${it-iw}</td>
+        <td style="padding:4px 6px;text-align:center;color:${wrColor(iwr)}">${iwr}</td>
+      </tr>`;
+    }).join('');
+    return tblWrap(tblHead([
+      {label:'アイテム',left:true},{label:'試合'},{label:'勝'},{label:'敗'},{label:'勝率'}
+    ])+`<tbody>${rows}</tbody>`);
+  };
+  const b4HTML=`
+    <div style="margin-bottom:10px;">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">🎒 もちもの</div>
+      ${makeItemTable(itemList)}
+    </div>
+    <div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">⚔️ バトルアイテム</div>
+      ${makeItemTable(baList)}
+    </div>`;
+
+  // ── B7: 日別試合数 ──
+  const dayMap={};
+  bs.forEach(b=>{
+    const day=b.created_at?b.created_at.slice(0,10):null;
+    if(!day)return;
+    if(!dayMap[day])dayMap[day]={w:0,l:0};
+    b.result==='win'?dayMap[day].w++:dayMap[day].l++;
+  });
+  const dayKeys=Object.keys(dayMap).sort();
+  const b7HTML=dayKeys.length>1
+    ?`<div class="chart-wrap" style="height:200px;"><canvas id="seriesanalDayChart"></canvas></div>`
+    :'<div class="empty" style="padding:0.8rem 0;">データが2日以上必要です</div>';
+
+  // ── HTML組み立て ──
   content.innerHTML=`
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0;">
       <div class="stat-box"><div class="stat-label">試合数</div><div class="stat-val">${t}</div></div>
@@ -3559,16 +3731,23 @@ async function renderSeriesAnalysis(){
     <div class="card-title" style="margin:10px 0 6px;">🎮 使用ポケモン（使用回数順）</div>
     <div class="chart-wrap" style="height:200px;margin-bottom:12px;"><canvas id="seriesanalChart"></canvas></div>
     <div class="series-compare-row header"><div>ポケモン</div><div class="series-val">試合</div><div class="series-val">勝</div><div class="series-wr-cell">勝率</div></div>
-    ${pokeList.map(([name,s])=>{
-      const tt=s.w+s.l,wr=tt>0?((s.w/tt)*100).toFixed(1)+'%':'—';
-      const col=tt>0?(parseFloat(wr)>=50?'var(--win)':'var(--loss)'):'var(--text2)';
-      return `<div class="series-compare-row"><div class="series-name-cell">${iconImg(name,'',20)} ${name}</div><div class="series-val">${tt}</div><div class="series-val">${s.w}</div><div class="series-wr-cell" style="color:${col}">${wr}</div></div>`;
+    ${pokeList.map(([name,ps])=>{
+      const pt=ps.w+ps.l,pwr=pt>0?((ps.w/pt)*100).toFixed(1)+'%':'—';
+      const pc=pt>0?(parseFloat(pwr)>=50?'var(--win)':'var(--loss)'):'var(--text2)';
+      return `<div class="series-compare-row"><div class="series-name-cell">${iconImg(name,'',20)} ${name}</div><div class="series-val">${pt}</div><div class="series-val">${ps.w}</div><div class="series-wr-cell" style="color:${pc}">${pwr}</div></div>`;
     }).join('')}
     `:'<div class="empty" style="padding:1rem 0;">ポケモン記録なし</div>'}
+    <div style="margin-top:4px;">
+      ${makeAccordion('🏅 ランク帯別勝率（モード内訳付き）',b1HTML)}
+      ${makeAccordion('🔍 ランク帯×ポケモン別勝率',b2HTML)}
+      ${makeAccordion('✨ 技セット別勝率',b3HTML)}
+      ${makeAccordion('🎒 アイテム別勝率',b4HTML)}
+      ${makeAccordion('📅 日別試合数',b7HTML)}
+    </div>
   `;
 
+  // ── ポケモン使用チャート ──
   if(pokeList.length){
-    if(seriesanalChartInst){seriesanalChartInst.destroy();seriesanalChartInst=null;}
     setTimeout(()=>{
       const canvas=document.getElementById('seriesanalChart');
       if(!canvas)return;
@@ -3577,8 +3756,8 @@ async function renderSeriesAnalysis(){
         data:{
           labels:pokeList.map(([name])=>name),
           datasets:[
-            {label:'勝利',data:pokeList.map(([,s])=>s.w),backgroundColor:'#4caf5088',borderColor:'#4caf50',borderWidth:1},
-            {label:'敗北',data:pokeList.map(([,s])=>s.l),backgroundColor:'#ef535088',borderColor:'#ef5350',borderWidth:1}
+            {label:'勝利',data:pokeList.map(([,ps])=>ps.w),backgroundColor:'#4caf5088',borderColor:'#4caf50',borderWidth:1},
+            {label:'敗北',data:pokeList.map(([,ps])=>ps.l),backgroundColor:'#ef535088',borderColor:'#ef5350',borderWidth:1}
           ]
         },
         options:{
@@ -3591,6 +3770,32 @@ async function renderSeriesAnalysis(){
         }
       });
     },50);
+  }
+
+  // ── B7 日別チャート ──
+  if(dayKeys.length>1){
+    setTimeout(()=>{
+      const canvas=document.getElementById('seriesanalDayChart');
+      if(!canvas)return;
+      seriesanalDayChartInst=new Chart(canvas,{
+        type:'bar',
+        data:{
+          labels:dayKeys,
+          datasets:[
+            {label:'勝利',data:dayKeys.map(d=>dayMap[d].w),backgroundColor:'#4caf5088',borderColor:'#4caf50',borderWidth:1},
+            {label:'敗北',data:dayKeys.map(d=>dayMap[d].l),backgroundColor:'#ef535088',borderColor:'#ef5350',borderWidth:1}
+          ]
+        },
+        options:{
+          responsive:true,maintainAspectRatio:false,
+          plugins:{legend:{labels:{color:'#9399b2',font:{size:11}}}},
+          scales:{
+            x:{stacked:true,ticks:{color:'#9399b2',maxRotation:40,font:{size:10}},grid:{color:'#2e3250'}},
+            y:{stacked:true,ticks:{color:'#9399b2',stepSize:1},grid:{color:'#2e3250'}}
+          }
+        }
+      });
+    },100);
   }
 }
 </script>
