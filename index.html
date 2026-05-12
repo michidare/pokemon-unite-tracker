@@ -1726,8 +1726,10 @@ db.auth.onAuthStateChange(async(event,session)=>{
 });
 
 function showPage(page){
+  navId++; // ナビゲーションガード：進行中の非同期描画を無効化
   ['trackerPage','analysisPage','profilePage','changelogPage'].forEach(id=>document.getElementById(id).style.display='none');
   document.getElementById(page+'Page').style.display='block';
+  window.scrollTo({top:0,behavior:'instant'}); // スクロール位置をリセット
   document.querySelectorAll('.page-tab').forEach((t,i)=>t.classList.toggle('active',
     (i===0&&page==='tracker')||(i===1&&page==='analysis')||(i===2&&page==='profile')));
   if(page==='analysis') loadAnalysis();
@@ -2228,6 +2230,8 @@ async function loadAnalysis(){
 }
 
 function switchAnalysis(tab){
+  navId++; // ナビゲーションガード
+  window.scrollTo({top:0,behavior:'instant'}); // タブ切替時もスクロールリセット
   document.querySelectorAll('.analysis-tab').forEach((t,i)=>t.classList.toggle('active',
     (i===0&&tab==='trend')||(i===1&&tab==='compare')||(i===2&&tab==='total')||(i===3&&tab==='pokedetail')||(i===4&&tab==='seriesanal')));
   document.getElementById('trendPanel').style.display=tab==='trend'?'block':'none';
@@ -2236,7 +2240,6 @@ function switchAnalysis(tab){
   document.getElementById('pokedetailPanel').style.display=tab==='pokedetail'?'block':'none';
   document.getElementById('seriesanalPanel').style.display=tab==='seriesanal'?'block':'none';
   if(tab==='seriesanal'){
-    // loadAnalysis完了後にrenderSeriesAnalysisを呼ぶ（データ未ロード対策）
     loadAnalysis().then(()=>renderSeriesAnalysis());
   } else {
     setTimeout(()=>{
@@ -3368,6 +3371,7 @@ let isRecording=false;
 let currentSeriesArchived=false;
 let seriesanalChartInst=null;
 let seriesanalDayChartInst=null;
+let navId=0; // ナビゲーションガード用カウンタ
 let streakOpen=false;
 
 // ===== U2 テーマ切替 =====
@@ -3536,12 +3540,13 @@ async function deleteAccount(){
 
 // ===== A5 シリーズ分析 =====
 async function renderSeriesAnalysis(){
+  const myNav=navId; // 呼び出し時点のnavIdを保存
   const sel=document.getElementById('seriesanalSelect');
   const content=document.getElementById('seriesanalContent');
   if(!sel||!content)return;
   const seriesId=sel.value;
   if(!seriesId){content.innerHTML='<div class="empty">シリーズを選択してください</div>';return;}
-  // ここまで来たら関数は呼ばれている。エラーがあれば赤字で表示
+  if(myNav!==navId)return; // ナビゲート済みなら中断
   content.innerHTML='<div class="empty">読み込み中...</div>';
   try{
   const s=allSeriesData.find(x=>x.id===seriesId);
@@ -3800,6 +3805,7 @@ async function renderSeriesAnalysis(){
     :'<div class="empty" style="padding:0.8rem 0;">データが2日以上必要です</div>';
 
   // ── HTML組み立て ──
+  if(myNav!==navId){return;} // 描画前に再チェック
   content.innerHTML=`
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0;">
       <div class="stat-box"><div class="stat-label">試合数</div><div class="stat-val">${t}</div></div>
@@ -3829,6 +3835,7 @@ async function renderSeriesAnalysis(){
   // ── ポケモン使用チャート ──
   if(pokeList.length){
     setTimeout(()=>{
+      if(myNav!==navId)return; // ナビゲート済みなら中断
       const canvas=document.getElementById('seriesanalChart');
       if(!canvas)return;
       seriesanalChartInst=new Chart(canvas,{
@@ -3855,6 +3862,7 @@ async function renderSeriesAnalysis(){
   // ── B7 日別チャート ──
   if(dayKeys.length>1){
     setTimeout(()=>{
+      if(myNav!==navId)return; // ナビゲート済みなら中断
       const canvas=document.getElementById('seriesanalDayChart');
       if(!canvas)return;
       seriesanalDayChartInst=new Chart(canvas,{
