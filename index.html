@@ -415,6 +415,15 @@
   .share-spinner{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2.5rem;gap:12px;}
   .share-spinner-circle{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
   .share-spinner-text{font-size:13px;color:var(--text3);}
+  /* 危険操作ボタン */
+  .btn-danger{flex:1;background:var(--loss-bg);color:var(--loss);border:1px solid var(--loss);border-radius:var(--radius-sm);padding:9px;font-size:13px;font-weight:600;cursor:pointer;}
+  .btn-danger:hover{background:var(--loss);color:#fff;}
+  /* トースト通知 */
+  .toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%) translateY(16px);background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:10px 20px;font-size:13px;z-index:2000;opacity:0;transition:opacity 0.25s,transform 0.25s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .toast.toast-error{border-color:var(--loss);color:var(--loss);}
+  .toast.toast-success{border-color:var(--win);color:var(--win);}
+  .toast.toast-warn{border-color:var(--orange);color:var(--orange);}
 </style>
 <link rel="manifest" href="manifest.json" />
 </head>
@@ -949,6 +958,18 @@
   <div class="drawer-close" onclick="closeDrawer()">閉じる ✕</div>
 </div>
 
+<!-- 汎用確認モーダル -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal">
+    <h3 id="confirmTitle">確認</h3>
+    <p id="confirmMessage" style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:1rem;white-space:pre-line;"></p>
+    <div class="modal-btns">
+      <button class="btn-modal-cancel" onclick="handleConfirm(false)">キャンセル</button>
+      <button class="btn-danger" id="confirmOkBtn" onclick="handleConfirm(true)">削除する</button>
+    </div>
+  </div>
+</div>
+
 <!-- シリーズ名変更モーダル -->
 <div class="modal-overlay" id="renameModal">
   <div class="modal">
@@ -999,7 +1020,9 @@
     </div>
     <div class="modal-field">
       <label>使用ポケモン</label>
-      <input type="text" id="editPokemon" placeholder="ポケモン名（空欄で削除）" oninput="onEditPokeInput(this.value)" />
+      <select id="editPokemon" onchange="onEditPokeInput(this.value)">
+        <option value="">— 未選択（ポケモン記録なし）—</option>
+      </select>
     </div>
     <div class="modal-field">
       <label>日時</label>
@@ -1540,6 +1563,12 @@ async function logout(){await db.auth.signOut();}
 
 db.auth.onAuthStateChange(async(event,session)=>{
   document.getElementById('loading').style.display='none';
+  // トークン自動更新は正常動作のためスキップ
+  if(event==='TOKEN_REFRESHED') return;
+  // セッション切れ（リフレッシュ失敗）
+  if(event==='SIGNED_OUT'&&document.getElementById('appSection').style.display==='block'){
+    showToast('セッションが切れました。再ログインしてください。','warn');
+  }
   if(session){
     document.getElementById('authSection').style.display='none';
     document.getElementById('appSection').style.display='block';
@@ -1572,6 +1601,18 @@ function showPage(page){
 // ---- 更新履歴 ----
 // ★ 新しい更新を追加するときはこのリストの先頭に追加してください
 const CHANGELOG = [
+  {
+    version: 'v2.5',
+    date: '2025-05-12',
+    items: [
+      '編集モーダルのポケモン選択をフリーテキストからタイプ別セレクトに変更（タイプミスによるデータ汚染を防止）',
+      'シリーズ削除・全履歴削除の確認ダイアログをアプリデザインに統一した専用モーダルに変更',
+      'Service Worker の登録パスを相対パスに修正（GitHub Pages 環境での PWA 動作を改善）',
+      '対戦記録・編集・削除・シリーズ操作でDBエラーが発生した場合にトースト通知で告知',
+      '記録保存前にセッション有効性を確認し、切れていた場合は再ログインを案内',
+      'セッション切れ（トークンリフレッシュ失敗）を検知してトースト通知を表示',
+    ]
+  },
   {
     version: 'v2.4',
     date: '2025-05-12',
@@ -2385,12 +2426,16 @@ async function deleteSeries(){
   if(!currentSeriesId)return;
   const sel=document.getElementById('seriesSelect');
   const name=sel.options[sel.selectedIndex]?.text||'このシリーズ';
-  if(!confirm(`「${name}」を削除しますか？\n対戦記録もすべて削除されます。`))return;
-  await db.from('battles').delete().eq('series_id',currentSeriesId);
-  await db.from('series').delete().eq('id',currentSeriesId);
-  currentSeriesId=null;battles=[];
-  showCards(false);
-  await loadSeries();
+  showConfirm('シリーズを削除',`「${name}」を削除しますか？\n対戦記録もすべて削除されます。この操作は元に戻せません。`,'削除する',async ok=>{
+    if(!ok)return;
+    const {error:e1}=await db.from('battles').delete().eq('series_id',currentSeriesId);
+    const {error:e2}=await db.from('series').delete().eq('id',currentSeriesId);
+    if(e1||e2){showToast('削除に失敗しました。もう一度お試しください。','error');return;}
+    currentSeriesId=null;battles=[];
+    showCards(false);
+    await loadSeries();
+    showToast('シリーズを削除しました','success');
+  });
 }
 function openRenameModal(){
   if(!currentSeriesId)return;
@@ -2402,11 +2447,13 @@ function openRenameModal(){
 async function renameSeries(){
   const name=document.getElementById('renameInput').value.trim();
   if(!name){return;}
-  await db.from('series').update({name}).eq('id',currentSeriesId);
+  const {error}=await db.from('series').update({name}).eq('id',currentSeriesId);
+  if(error){showToast('名前の変更に失敗しました。','error');return;}
   document.getElementById('statsTitle').textContent=name;
   closeModal('renameModal');
   await loadSeries();
   document.getElementById('seriesSelect').value=currentSeriesId;
+  showToast('シリーズ名を変更しました','success');
 }
 
 function initEditItemSelects(){
@@ -2468,7 +2515,15 @@ function openEditModal(id){
   document.getElementById('editResult').value=result;
   document.getElementById('editRank').value=rank||'';
   document.getElementById('editMatchType').value=matchType;
-  document.getElementById('editPokemon').value=pokemon||'';
+  // ポケモン選択 select を動的生成（タイプ別グループ）
+  const epSel=document.getElementById('editPokemon');
+  epSel.innerHTML='<option value="">— 未選択 —</option>';
+  Object.entries(POKEMON_DATA).forEach(([,{label,pokemon:list}])=>{
+    const grp=document.createElement('optgroup');grp.label=label;
+    list.forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;grp.appendChild(o);});
+    epSel.appendChild(grp);
+  });
+  epSel.value=pokemon||'';
   const d=new Date(createdAt);
   const local=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
   document.getElementById('editDatetime').value=local;
@@ -2494,7 +2549,7 @@ async function saveEdit(){
   const id=document.getElementById('editBattleId').value;
   const result=document.getElementById('editResult').value;
   const match_type=document.getElementById('editMatchType').value;
-  const pokemon=document.getElementById('editPokemon').value.trim()||null;
+  const pokemon=document.getElementById('editPokemon').value||null;
   const dtLocal=document.getElementById('editDatetime').value;
   const created_at=dtLocal?new Date(dtLocal).toISOString():undefined;
   const skill1=document.getElementById('editSkill1')?.value||null;
@@ -2508,9 +2563,34 @@ async function saveEdit(){
   const rank=document.getElementById('editRank')?.value||null;
   const update={result,match_type,rank,pokemon,skill1,skill2,items,battle_item};
   if(created_at)update.created_at=created_at;
-  await db.from('battles').update(update).eq('id',id);
+  const {error}=await db.from('battles').update(update).eq('id',id);
+  if(error){showToast('保存に失敗しました。通信状態を確認してください。','error');return;}
   closeModal('editModal');
   await loadBattles();
+}
+
+// ---- トースト通知 ----
+function showToast(message,type='error'){
+  const t=document.createElement('div');
+  t.className='toast toast-'+type;
+  t.textContent=message;
+  document.body.appendChild(t);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>t.classList.add('show')));
+  setTimeout(()=>{t.classList.remove('show');setTimeout(()=>t.remove(),300);},3200);
+}
+
+// ---- 汎用確認モーダル ----
+let _confirmCb=null;
+function showConfirm(title,message,okLabel,cb){
+  document.getElementById('confirmTitle').textContent=title;
+  document.getElementById('confirmMessage').textContent=message;
+  document.getElementById('confirmOkBtn').textContent=okLabel||'OK';
+  _confirmCb=cb;
+  document.getElementById('confirmModal').classList.add('open');
+}
+function handleConfirm(ok){
+  closeModal('confirmModal');
+  if(_confirmCb){_confirmCb(ok);_confirmCb=null;}
 }
 
 // ---- モーダル共通 ----
@@ -2532,7 +2612,7 @@ function pwaInstall(){
 }
 function pwaDismiss(){document.getElementById('pwaBar').classList.remove('show');}
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 }
 
 // ---- シェア画像生成 ----
@@ -2830,7 +2910,8 @@ async function loadBattles(){
 }
 async function record(result){
   if(!currentSeriesId)return;
-  const {data:{user}}=await db.auth.getUser();
+  const {data:{user},error:authErr}=await db.auth.getUser();
+  if(authErr||!user){showToast('セッションが切れました。再ログインしてください。','warn');setTimeout(()=>logout(),1800);return;}
   const pokemon=selectedPoke||null;
   const match_type=document.getElementById('matchType').value;
   const rank=document.getElementById('rankSelect')?.value||null;
@@ -2842,13 +2923,24 @@ async function record(result){
   const i3=getItemPickerValue('ip3');
   const items=[i1,i2,i3].filter(Boolean).join(',')||null;
   const battle_item=getItemPickerValue('ipB');
-  await db.from('battles').insert({user_id:user.id,series_id:currentSeriesId,result,match_type,rank,pokemon,skill1,skill2,items,battle_item});
+  const {error}=await db.from('battles').insert({user_id:user.id,series_id:currentSeriesId,result,match_type,rank,pokemon,skill1,skill2,items,battle_item});
+  if(error){showToast('記録の保存に失敗しました。通信状態を確認してください。','error');return;}
   await loadBattles();
 }
-async function deleteEntry(id){await db.from('battles').delete().eq('id',id);await loadBattles();}
+async function deleteEntry(id){
+  const {error}=await db.from('battles').delete().eq('id',id);
+  if(error){showToast('削除に失敗しました。','error');return;}
+  await loadBattles();
+}
 async function clearAll(){
-  if(!currentSeriesId||!confirm('このシリーズの全履歴を削除しますか？'))return;
-  await db.from('battles').delete().eq('series_id',currentSeriesId);await loadBattles();
+  if(!currentSeriesId)return;
+  showConfirm('全履歴を削除','このシリーズの全対戦履歴を削除しますか？\nこの操作は元に戻せません。','全削除する',async ok=>{
+    if(!ok||!currentSeriesId)return;
+    const {error}=await db.from('battles').delete().eq('series_id',currentSeriesId);
+    if(error){showToast('削除に失敗しました。もう一度お試しください。','error');return;}
+    await loadBattles();
+    showToast('全履歴を削除しました','success');
+  });
 }
 
 function calcWR(w,t){return t>0?(w/t*100).toFixed(1):null;}
