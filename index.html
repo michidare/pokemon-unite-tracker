@@ -2212,8 +2212,15 @@ async function loadAnalysis(){
     // A5: シリーズ分析セレクト
     const asel=document.getElementById('seriesanalSelect');
     if(asel){
+      const prevVal=asel.value;
       asel.innerHTML='<option value="">— シリーズを選択 —</option>'+
         allSeriesData.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+      // 以前の選択を復元、なければ最初のシリーズを自動選択
+      if(prevVal&&asel.querySelector(`option[value="${prevVal}"]`)){
+        asel.value=prevVal;
+      } else if(asel.options.length>1){
+        asel.selectedIndex=1;
+      }
     }
     analysisLoaded=true;
     analysisNeedsRefresh=false;
@@ -2229,13 +2236,17 @@ function switchAnalysis(tab){
   document.getElementById('totalPanel').style.display=tab==='total'?'block':'none';
   document.getElementById('pokedetailPanel').style.display=tab==='pokedetail'?'block':'none';
   document.getElementById('seriesanalPanel').style.display=tab==='seriesanal'?'block':'none';
-  setTimeout(()=>{
-    if(tab==='trend') renderTrendChart();
-    if(tab==='compare') renderCompareChart();
-    if(tab==='total') renderTotalStats();
-    if(tab==='pokedetail') initPokeDetailSelect();
-    if(tab==='seriesanal') renderSeriesAnalysis();
-  }, 50);
+  if(tab==='seriesanal'){
+    // loadAnalysis完了後にrenderSeriesAnalysisを呼ぶ（データ未ロード対策）
+    loadAnalysis().then(()=>renderSeriesAnalysis());
+  } else {
+    setTimeout(()=>{
+      if(tab==='trend') renderTrendChart();
+      if(tab==='compare') renderCompareChart();
+      if(tab==='total') renderTotalStats();
+      if(tab==='pokedetail') initPokeDetailSelect();
+    }, 50);
+  }
 }
 
 function renderTrendChart(){
