@@ -1449,8 +1449,7 @@ function initDetailSelects(){
     sel.innerHTML='<option value="">— 選択 —</option>'+GENERAL_ITEMS.map(i=>`<option value="${i}">${i}</option>`).join('');
     sel.onchange=()=>refreshItemSelects(id);
   });
-  const bi=document.getElementById('battleItem');
-  if(bi)bi.innerHTML='<option value="">— 選択 —</option>'+BATTLE_ITEMS_LIST.map(i=>`<option value="${i}">${i}</option>`).join('');
+  // battleItem(旧ID)は現UIに存在しないため削除済み
 }
 
 function updateDetailForPoke(pokeName){
@@ -1740,7 +1739,7 @@ function showPage(page){
 const CHANGELOG = [
   {
     version: 'v2.6',
-    date: '2026-05-12',
+    date: '2025-05-12',
     items: [
       '対戦記録にメモ欄を追加（詳細設定内の折りたたみで入力、履歴にも表示）',
       '連打による二重記録を防止するよう改善',
