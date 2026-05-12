@@ -3651,29 +3651,48 @@ async function renderSeriesAnalysis(){
   }).join('');
   const b2HTML=b2Sections||'<div class="empty" style="padding:0.8rem 0;">ランク記録なし</div>';
 
-  // ── B3: 技セット別勝率 ──
-  const skillMap={};
-  bs.filter(b=>b.skill1||b.skill2).forEach(b=>{
-    const key=(b.skill1||'—')+' / '+(b.skill2||'—');
-    if(!skillMap[key])skillMap[key]=[];
-    skillMap[key].push(b);
+  // ── B3: 技セット別勝率（ポケモン別） ──
+  // ポケモンごとに技セットを集計し、使用頻度順で表示
+  const pokeSkillMap={};
+  bs.filter(b=>b.pokemon&&(b.skill1||b.skill2)).forEach(b=>{
+    if(!pokeSkillMap[b.pokemon])pokeSkillMap[b.pokemon]=[];
+    pokeSkillMap[b.pokemon].push(b);
   });
-  const skillList=Object.entries(skillMap).sort((a,b)=>b[1].length-a[1].length).slice(0,15);
-  const b3Rows=skillList.map(([key,arr])=>{
-    const sw=arr.filter(b=>b.result==='win').length;
-    const st=arr.length;
-    const swr=((sw/st)*100).toFixed(1)+'%';
-    return `<tr>
-      <td style="padding:4px 6px;">${key}</td>
-      <td style="padding:4px 6px;text-align:center;">${st}</td>
-      <td style="padding:4px 6px;text-align:center;">${sw}</td>
-      <td style="padding:4px 6px;text-align:center;">${st-sw}</td>
-      <td style="padding:4px 6px;text-align:center;color:${wrColor(swr)}">${swr}</td>
-    </tr>`;
+  const pokeSkillSorted=Object.entries(pokeSkillMap).sort((a,b)=>b[1].length-a[1].length);
+  const b3Sections=pokeSkillSorted.map(([pokeName,pokeBattles])=>{
+    const smap={};
+    pokeBattles.forEach(b=>{
+      const key=(b.skill1||'—')+' / '+(b.skill2||'—');
+      if(!smap[key])smap[key]=[];
+      smap[key].push(b);
+    });
+    const sList=Object.entries(smap).sort((a,b)=>b[1].length-a[1].length);
+    const rows=sList.map(([key,arr])=>{
+      const sw=arr.filter(b=>b.result==='win').length;
+      const st=arr.length;
+      const swr=((sw/st)*100).toFixed(1)+'%';
+      return `<tr>
+        <td style="padding:4px 8px;font-size:11px;">${key}</td>
+        <td style="padding:4px 6px;text-align:center;">${st}</td>
+        <td style="padding:4px 6px;text-align:center;">${sw}</td>
+        <td style="padding:4px 6px;text-align:center;">${st-sw}</td>
+        <td style="padding:4px 6px;text-align:center;color:${wrColor(swr)};font-weight:600;">${swr}</td>
+      </tr>`;
+    }).join('');
+    const pt=pokeBattles.length,pw=pokeBattles.filter(b=>b.result==='win').length;
+    const pwr=((pw/pt)*100).toFixed(1)+'%';
+    return `<div style="margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;padding:4px 0;border-bottom:1px solid var(--border);">
+        ${iconImg(pokeName,'',20)}
+        <span style="font-size:12px;font-weight:600;">${pokeName}</span>
+        <span style="font-size:11px;color:var(--text3);margin-left:auto;">${pt}試合 / 勝率 <span style="color:${wrColor(pwr)}">${pwr}</span></span>
+      </div>
+      ${tblWrap(tblHead([
+        {label:'技セット（技1 / 技2）',left:true},{label:'試合'},{label:'勝'},{label:'敗'},{label:'勝率'}
+      ])+`<tbody>${rows}</tbody>`)}
+    </div>`;
   }).join('');
-  const b3HTML=b3Rows?tblWrap(tblHead([
-    {label:'技セット',left:true},{label:'試合'},{label:'勝'},{label:'敗'},{label:'勝率'}
-  ])+`<tbody>${b3Rows}</tbody>`):'<div class="empty" style="padding:0.8rem 0;">技記録なし</div>';
+  const b3HTML=b3Sections||'<div class="empty" style="padding:0.8rem 0;">技記録なし</div>';
 
   // ── B4: アイテム別勝率 ──
   // itemsはDB形式によりarray/JSON文字列/nullの場合がある
@@ -3682,51 +3701,89 @@ async function renderSeriesAnalysis(){
     if(Array.isArray(v))return v;
     if(typeof v==='string'){
       try{const p=JSON.parse(v);return Array.isArray(p)?p:[];}catch{}
-      return v.split(',').filter(Boolean); // CSV形式フォールバック
+      return v.split(',').filter(Boolean);
     }
     return[];
   };
-  const itemMap={};
-  bs.forEach(b=>{
-    parseItems(b.items).forEach(item=>{
-      if(!item)return;
-      if(!itemMap[item])itemMap[item]=[];
-      itemMap[item].push(b);
-    });
+  // もちもの: ポケモン別に集計
+  const pokeItemMap={};
+  bs.filter(b=>b.pokemon).forEach(b=>{
+    const items=parseItems(b.items);
+    if(!items.length)return;
+    if(!pokeItemMap[b.pokemon])pokeItemMap[b.pokemon]=[];
+    pokeItemMap[b.pokemon].push(b);
   });
-  const itemList=Object.entries(itemMap).sort((a,b)=>b[1].length-a[1].length).slice(0,15);
+  const pokeItemSorted=Object.entries(pokeItemMap).sort((a,b)=>b[1].length-a[1].length);
+  const itemSections=pokeItemSorted.map(([pokeName,pokeBattles])=>{
+    const imap={};
+    pokeBattles.forEach(b=>{
+      parseItems(b.items).forEach(item=>{
+        if(!item)return;
+        if(!imap[item])imap[item]=[];
+        imap[item].push(b);
+      });
+    });
+    const iList=Object.entries(imap).sort((a,b)=>b[1].length-a[1].length);
+    if(!iList.length)return'';
+    const rows=iList.map(([item,arr])=>{
+      const iw=arr.filter(b=>b.result==='win').length;
+      const it=arr.length;
+      const iwr=((iw/it)*100).toFixed(1)+'%';
+      // アイテム採用率（このポケモンの試合のうち何割で使われたか）
+      const rate=((it/pokeBattles.length)*100).toFixed(0)+'%';
+      return `<tr>
+        <td style="padding:4px 8px;font-size:11px;">${item}</td>
+        <td style="padding:4px 6px;text-align:center;color:var(--text3);">${rate}</td>
+        <td style="padding:4px 6px;text-align:center;">${it}</td>
+        <td style="padding:4px 6px;text-align:center;">${iw}</td>
+        <td style="padding:4px 6px;text-align:center;">${it-iw}</td>
+        <td style="padding:4px 6px;text-align:center;color:${wrColor(iwr)};font-weight:600;">${iwr}</td>
+      </tr>`;
+    }).join('');
+    const pt=pokeBattles.length,pw=pokeBattles.filter(b=>b.result==='win').length;
+    const pwr=((pw/pt)*100).toFixed(1)+'%';
+    return `<div style="margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;padding:4px 0;border-bottom:1px solid var(--border);">
+        ${iconImg(pokeName,'',20)}
+        <span style="font-size:12px;font-weight:600;">${pokeName}</span>
+        <span style="font-size:11px;color:var(--text3);margin-left:auto;">${pt}試合 / 勝率 <span style="color:${wrColor(pwr)}">${pwr}</span></span>
+      </div>
+      ${tblWrap(tblHead([
+        {label:'もちもの',left:true},{label:'採用率'},{label:'試合'},{label:'勝'},{label:'敗'},{label:'勝率'}
+      ])+`<tbody>${rows}</tbody>`)}
+    </div>`;
+  }).join('');
+  // バトルアイテム: 全体集計
   const baMap={};
   bs.filter(b=>b.battle_item).forEach(b=>{
     if(!baMap[b.battle_item])baMap[b.battle_item]=[];
     baMap[b.battle_item].push(b);
   });
   const baList=Object.entries(baMap).sort((a,b)=>b[1].length-a[1].length);
-  const makeItemTable=(list)=>{
-    if(!list.length)return'<div class="empty" style="padding:0.5rem 0;">記録なし</div>';
-    const rows=list.map(([item,arr])=>{
-      const iw=arr.filter(b=>b.result==='win').length;
-      const it=arr.length;
-      const iwr=((iw/it)*100).toFixed(1)+'%';
-      return `<tr>
-        <td style="padding:4px 6px;">${item}</td>
-        <td style="padding:4px 6px;text-align:center;">${it}</td>
-        <td style="padding:4px 6px;text-align:center;">${iw}</td>
-        <td style="padding:4px 6px;text-align:center;">${it-iw}</td>
-        <td style="padding:4px 6px;text-align:center;color:${wrColor(iwr)}">${iwr}</td>
-      </tr>`;
-    }).join('');
-    return tblWrap(tblHead([
-      {label:'アイテム',left:true},{label:'試合'},{label:'勝'},{label:'敗'},{label:'勝率'}
-    ])+`<tbody>${rows}</tbody>`);
-  };
+  const baRows=baList.map(([item,arr])=>{
+    const bw=arr.filter(b=>b.result==='win').length;
+    const bt=arr.length;
+    const bwr=((bw/bt)*100).toFixed(1)+'%';
+    const brate=((bt/bs.length)*100).toFixed(0)+'%';
+    return `<tr>
+      <td style="padding:4px 8px;font-size:11px;">${item}</td>
+      <td style="padding:4px 6px;text-align:center;color:var(--text3);">${brate}</td>
+      <td style="padding:4px 6px;text-align:center;">${bt}</td>
+      <td style="padding:4px 6px;text-align:center;">${bw}</td>
+      <td style="padding:4px 6px;text-align:center;">${bt-bw}</td>
+      <td style="padding:4px 6px;text-align:center;color:${wrColor(bwr)};font-weight:600;">${bwr}</td>
+    </tr>`;
+  }).join('');
   const b4HTML=`
-    <div style="margin-bottom:10px;">
-      <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">🎒 もちもの</div>
-      ${makeItemTable(itemList)}
+    <div style="margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:8px;">🎒 もちもの（ポケモン別）</div>
+      ${itemSections||'<div class="empty" style="padding:0.5rem 0;">記録なし</div>'}
     </div>
     <div>
-      <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">⚔️ バトルアイテム</div>
-      ${makeItemTable(baList)}
+      <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px;">⚔️ バトルアイテム（全体）</div>
+      ${baRows?tblWrap(tblHead([
+        {label:'バトルアイテム',left:true},{label:'採用率'},{label:'試合'},{label:'勝'},{label:'敗'},{label:'勝率'}
+      ])+`<tbody>${baRows}</tbody>`):'<div class="empty" style="padding:0.5rem 0;">記録なし</div>'}
     </div>`;
 
   // ── B7: 日別試合数 ──
