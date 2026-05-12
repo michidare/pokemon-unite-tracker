@@ -929,38 +929,36 @@
         <div id="ttPokeStats"></div>
       </div>
     </div>
-  </div>
-
-  <!-- A5: シリーズ分析パネル -->
-  <div id="seriesanalPanel" style="display:none;">
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-        <div class="card-title" style="margin-bottom:0;">シリーズ分析</div>
+    <!-- A5: シリーズ分析パネル -->
+    <div id="seriesanalPanel" style="display:none;">
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div class="card-title" style="margin-bottom:0;">シリーズ分析</div>
+        </div>
+        <select id="seriesanalSelect" onchange="renderSeriesAnalysis()" style="margin-top:0;"></select>
+        <div id="seriesanalContent"><div class="empty" style="padding:1.5rem 0;">シリーズを選択してください</div></div>
       </div>
-      <select id="seriesanalSelect" onchange="renderSeriesAnalysis()" style="margin-top:0;"></select>
-      <div id="seriesanalContent"><div class="empty" style="padding:1.5rem 0;">シリーズを選択してください</div></div>
     </div>
-  </div>
-
-  <!-- ポケモン別詳細 -->
-  <div id="pokedetailPanel" style="display:none;">
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-        <div class="card-title" style="margin-bottom:0;">ポケモン別詳細</div>
-        <button class="btn-help" onclick="openHelp('pokedetail')">？</button>
+    <!-- ポケモン別詳細 -->
+    <div id="pokedetailPanel" style="display:none;">
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div class="card-title" style="margin-bottom:0;">ポケモン別詳細</div>
+          <button class="btn-help" onclick="openHelp('pokedetail')">？</button>
+        </div>
+        <div class="detail-poke-select">
+          <select class="detail-select" id="detailPokeSelect" onchange="renderPokeDetail()" style="font-size:13px;padding:8px 12px;">
+            <option value="">— ポケモンを選択 —</option>
+          </select>
+        </div>
+        <div class="detail-mode-tabs">
+          <div class="detail-mode-tab active" onclick="switchDetailMode('all')">トータル</div>
+          <div class="detail-mode-tab" onclick="switchDetailMode('solo')">ソロ</div>
+          <div class="detail-mode-tab" onclick="switchDetailMode('duo')">デュオ/トリオ</div>
+          <div class="detail-mode-tab" onclick="switchDetailMode('full')">フルパ</div>
+        </div>
+        <div id="pokeDetailContent"><div class="empty">ポケモンを選択してください</div></div>
       </div>
-      <div class="detail-poke-select">
-        <select class="detail-select" id="detailPokeSelect" onchange="renderPokeDetail()" style="font-size:13px;padding:8px 12px;">
-          <option value="">— ポケモンを選択 —</option>
-        </select>
-      </div>
-      <div class="detail-mode-tabs">
-        <div class="detail-mode-tab active" onclick="switchDetailMode('all')">トータル</div>
-        <div class="detail-mode-tab" onclick="switchDetailMode('solo')">ソロ</div>
-        <div class="detail-mode-tab" onclick="switchDetailMode('duo')">デュオ/トリオ</div>
-        <div class="detail-mode-tab" onclick="switchDetailMode('full')">フルパ</div>
-      </div>
-      <div id="pokeDetailContent"><div class="empty">ポケモンを選択してください</div></div>
     </div>
   </div>
 
