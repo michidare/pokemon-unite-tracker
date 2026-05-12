@@ -3677,9 +3677,15 @@ async function renderSeriesAnalysis(){
   ])+`<tbody>${b3Rows}</tbody>`):'<div class="empty" style="padding:0.8rem 0;">技記録なし</div>';
 
   // ── B4: アイテム別勝率 ──
+  // itemsはDB形式によりarray/JSON文字列/nullの場合がある
+  const parseItems=(v)=>{
+    if(!v)return[];
+    if(Array.isArray(v))return v;
+    try{const p=JSON.parse(v);return Array.isArray(p)?p:[];}catch{return[];}
+  };
   const itemMap={};
-  bs.filter(b=>b.items&&b.items.length).forEach(b=>{
-    b.items.forEach(item=>{
+  bs.forEach(b=>{
+    parseItems(b.items).forEach(item=>{
       if(!item)return;
       if(!itemMap[item])itemMap[item]=[];
       itemMap[item].push(b);
