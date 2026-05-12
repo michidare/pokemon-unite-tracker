@@ -3542,8 +3542,11 @@ async function renderSeriesAnalysis(){
   if(!sel||!content)return;
   const seriesId=sel.value;
   if(!seriesId){content.innerHTML='<div class="empty">シリーズを選択してください</div>';return;}
+  // ここまで来たら関数は呼ばれている。エラーがあれば赤字で表示
+  content.innerHTML='<div class="empty">読み込み中...</div>';
+  try{
   const s=allSeriesData.find(x=>x.id===seriesId);
-  if(!s){content.innerHTML=`<div class="empty">データが見つかりません (id=${seriesId}, allSeriesData.length=${allSeriesData.length})</div>`;return;}
+  if(!s){content.innerHTML=`<div class="empty">データが見つかりません (id=${seriesId}, count=${allSeriesData.length})</div>`;return;}
   const bs=s.battles;
   if(!bs.length){content.innerHTML='<div class="empty">このシリーズに記録がありません</div>';return;}
 
@@ -3731,7 +3734,6 @@ async function renderSeriesAnalysis(){
     :'<div class="empty" style="padding:0.8rem 0;">データが2日以上必要です</div>';
 
   // ── HTML組み立て ──
-  try{
   content.innerHTML=`
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0;">
       <div class="stat-box"><div class="stat-label">試合数</div><div class="stat-val">${t}</div></div>
@@ -3757,8 +3759,6 @@ async function renderSeriesAnalysis(){
       ${makeAccordion('📅 日別試合数',b7HTML)}
     </div>
   `;
-
-  }catch(err){content.innerHTML=`<div class="empty" style="color:#ef5350;">描画エラー: ${err.message}<br><small style="font-size:10px;">${err.stack||''}</small></div>`;return;}
 
   // ── ポケモン使用チャート ──
   if(pokeList.length){
@@ -3811,6 +3811,7 @@ async function renderSeriesAnalysis(){
       });
     },100);
   }
+  }catch(err){content.innerHTML=`<div class="empty" style="color:#ef5350;padding:1rem;">エラー: ${err.message}<br><small>${err.stack||''}</small></div>`;}
 }
 </script>
 </body>
