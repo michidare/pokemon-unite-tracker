@@ -1483,6 +1483,19 @@ function updateDetailForPoke(pokeName){
       normalWrap.style.display='';
     }
   }
+  // ポケモン別ロードアウト復元（localStorage）
+  try{
+    const saved=localStorage.getItem('pokeLoadout_'+pokeName);
+    if(saved){
+      const lo=JSON.parse(saved);
+      if(s1&&lo.skill1)s1.value=lo.skill1;
+      if(s2&&lo.skill2)s2.value=lo.skill2;
+      if(!dedicated&&lo.ip1)setItemPickerValue('ip1',lo.ip1);
+      if(lo.ip2)setItemPickerValue('ip2',lo.ip2);
+      if(lo.ip3)setItemPickerValue('ip3',lo.ip3);
+      if(lo.ipB)setItemPickerValue('ipB',lo.ipB);
+    }
+  }catch{}
 }
 
 function resetDetail(){
@@ -2573,7 +2586,25 @@ function renderPokeList(search='',typeFilter='all'){
 }
 function openDropdown(){document.getElementById('pokeDropdown').classList.add('open');document.getElementById('pokeSearch').value='';renderPokeList('',activeTypeFilter);setTimeout(()=>document.getElementById('pokeSearch').focus(),50);}
 function closeDropdown(){document.getElementById('pokeDropdown').classList.remove('open');}
+function saveCurrentLoadout(){
+  if(!selectedPoke)return;
+  try{
+    const lo={
+      skill1:document.getElementById('skill1')?.value||null,
+      skill2:document.getElementById('skill2')?.value||null,
+      ip1:getItemPickerValue('ip1'),
+      ip2:getItemPickerValue('ip2'),
+      ip3:getItemPickerValue('ip3'),
+      ipB:getItemPickerValue('ipB')
+    };
+    if(lo.skill1||lo.skill2||lo.ip1||lo.ip2||lo.ip3||lo.ipB){
+      localStorage.setItem('pokeLoadout_'+selectedPoke,JSON.stringify(lo));
+    }
+  }catch{}
+}
 function selectPoke(name){
+  // 切り替え前のポケモンのロードアウトを保存
+  if(selectedPoke&&selectedPoke!==name) saveCurrentLoadout();
   selectedPoke=name;
   const u=getIconUrl(name);
   document.getElementById('pokeDisplayBtn').innerHTML=u?`<img src="${u}" class="poke-display-icon" width="30" height="30" alt="${name}" /><span>${name}</span>`:`<span>${name}</span>`;
@@ -2589,6 +2620,7 @@ function selectPoke(name){
   closeDropdown();
 }
 function clearPoke(){
+  saveCurrentLoadout(); // クリア前にロードアウトを保存
   selectedPoke='';
   document.getElementById('pokeDisplayBtn').innerHTML='<span class="poke-display-placeholder">タップして選択 / 検索...</span>';
   document.getElementById('clearPokeBtn').style.display='none';
@@ -3165,6 +3197,13 @@ async function record(result){
     const note=document.getElementById('noteInput')?.value.trim()||null;
     const {error}=await db.from('battles').insert({user_id:user.id,series_id:currentSeriesId,result,match_type,rank,pokemon,skill1,skill2,items,battle_item,note});
     if(error){showToast('記録の保存に失敗しました。通信状態を確認してください。','error');return;}
+    // ポケモン別ロードアウトをlocalStorageに保存
+    if(pokemon){
+      try{
+        const lo={skill1,skill2,ip1:getItemPickerValue('ip1'),ip2:i2,ip3:i3,ipB:battle_item};
+        localStorage.setItem('pokeLoadout_'+pokemon,JSON.stringify(lo));
+      }catch{}
+    }
     // メモをリセット
     const noteEl=document.getElementById('noteInput');if(noteEl)noteEl.value='';
     // U4: フォーム値を保存
