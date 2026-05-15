@@ -934,6 +934,7 @@
       <div class="card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
           <div class="card-title" style="margin-bottom:0;">シリーズ分析</div>
+          <button class="btn-help" onclick="openHelp('seriesanal')">？</button>
         </div>
         <select id="seriesanalSelect" onchange="renderSeriesAnalysis()" style="margin-top:0;"></select>
         <div id="seriesanalContent"><div class="empty" style="padding:1.5rem 0;">シリーズを選択してください</div></div>
@@ -2153,6 +2154,28 @@ const HELP_CONTENT = {
         <div class="help-item"><span class="help-item-icon">🏆</span><span><strong>全シリーズを合算</strong>した総試合数・通算勝率・総勝利・総敗北</span></div>
         <div class="help-item"><span class="help-item-icon">🎮</span><span><strong>モード別通算</strong>：ソロ・デュオ/トリオ・フルパそれぞれの通算成績</span></div>
         <div class="help-item"><span class="help-item-icon">🥇</span><span><strong>ポケモン別TOP5</strong>：全シリーズ合計で最も多く使ったポケモンの成績上位5体</span></div>
+      </div>`
+  },
+  seriesanal: {
+    title: '❓ シリーズ分析',
+    body: `
+      <div class="help-section">
+        <div class="help-section-title">使い方</div>
+        <div class="help-step"><div class="help-step-num">1</div><div class="help-step-text">プルダウンからシリーズを選択します。</div></div>
+        <div class="help-step"><div class="help-step-num">2</div><div class="help-step-text">試合数・勝率のサマリーと使用ポケモン（上位12体）が表示されます。</div></div>
+        <div class="help-step"><div class="help-step-num">3</div><div class="help-step-text">各分析セクションのラベルをタップすると詳細が展開されます。</div></div>
+      </div>
+      <div class="help-section">
+        <div class="help-section-title">分析セクション</div>
+        <div class="help-item"><span class="help-item-icon">🏅</span><span><strong>ランク帯別勝率</strong>：ランク帯ごとの勝敗とソロ・デュオ/トリオ・フルパ別の内訳</span></div>
+        <div class="help-item"><span class="help-item-icon">🔍</span><span><strong>ランク帯×ポケモン別勝率</strong>：各ランク帯で使用したポケモンの勝率</span></div>
+        <div class="help-item"><span class="help-item-icon">✨</span><span><strong>技セット別勝率</strong>：ポケモンごとの技の組み合わせと採用率・勝率</span></div>
+        <div class="help-item"><span class="help-item-icon">🎒</span><span><strong>アイテム別勝率</strong>：もちものはポケモン別、バトルアイテムはシリーズ全体で集計</span></div>
+        <div class="help-item"><span class="help-item-icon">📅</span><span><strong>日別試合数</strong>：日ごとの勝利・敗北の棒グラフ（2日以上の記録が必要）</span></div>
+      </div>
+      <div class="help-section">
+        <div class="help-section-title">💡 活用のヒント</div>
+        <div class="help-item"><span class="help-item-icon">💡</span><span>ランク帯・技・もちものを詳しく記録するほど、より精度の高い分析ができます。</span></div>
       </div>`
   },
   pokedetail: {
