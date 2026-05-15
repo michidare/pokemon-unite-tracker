@@ -2032,7 +2032,12 @@ const HELP_CONTENT = {
         <div class="help-section-title">操作方法</div>
         <div class="help-step"><div class="help-step-num">1</div><div class="help-step-text">シリーズ名を入力して「<strong>追加</strong>」を押すと新しいシリーズが作られます。</div></div>
         <div class="help-step"><div class="help-step-num">2</div><div class="help-step-text">プルダウンからシリーズを選ぶと統計・対戦記録が表示されます。</div></div>
-        <div class="help-step"><div class="help-step-num">3</div><div class="help-step-text">シリーズ選択後に「<strong>✏️ 名前を変更</strong>」「<strong>🗑 削除</strong>」ボタンが表示されます。</div></div>
+        <div class="help-step"><div class="help-step-num">3</div><div class="help-step-text">シリーズ選択後に「<strong>✏️ 名前を変更</strong>」「<strong>📦 アーカイブ</strong>」「<strong>🗑 削除</strong>」ボタンが表示されます。</div></div>
+      </div>
+      <div class="help-section">
+        <div class="help-section-title">アーカイブ</div>
+        <div class="help-item"><span class="help-item-icon">📦</span><span>使わなくなったシリーズをアーカイブすると、プルダウンの一覧から非表示にできます。</span></div>
+        <div class="help-item"><span class="help-item-icon">👁</span><span>「アーカイブ済みを表示」チェックをオンにすると、アーカイブ済みシリーズも表示されます。</span></div>
       </div>
       <div class="help-section">
         <div class="help-section-title">⚠️ 注意</div>
@@ -2043,15 +2048,21 @@ const HELP_CONTENT = {
     title: '❓ 統計',
     body: `
       <div class="help-section">
-        <div class="help-section-title">表示内容</div>
+        <div class="help-section-title">モード別成績</div>
         <div class="help-item"><span class="help-item-icon">📊</span><span><strong>トータル</strong>：選択中のシリーズの全試合数・勝利・敗北・勝率</span></div>
         <div class="help-item"><span class="help-item-icon">🎮</span><span><strong>ソロ</strong>：1人で参加した試合の成績</span></div>
         <div class="help-item"><span class="help-item-icon">👥</span><span><strong>デュオ/トリオ</strong>：2〜3人パーティの成績</span></div>
         <div class="help-item"><span class="help-item-icon">🏆</span><span><strong>フルパ</strong>：5人フルパーティの成績</span></div>
       </div>
       <div class="help-section">
-        <div class="help-section-title">勝率バーについて</div>
-        <div class="help-item"><span class="help-item-icon">📈</span><span>各項目の下にある緑色のバーが勝率を視覚的に表しています。</span></div>
+        <div class="help-section-title">ランク別成績</div>
+        <div class="help-item"><span class="help-item-icon">🥇</span><span>記録時にランク帯を選択した試合のみ集計されます。</span></div>
+        <div class="help-item"><span class="help-item-icon">📈</span><span>ランク帯ごとの勝敗・勝率を確認できます。</span></div>
+      </div>
+      <div class="help-section">
+        <div class="help-section-title">🔥 連勝・連敗</div>
+        <div class="help-item"><span class="help-item-icon">🔥</span><span>現在の連勝/連敗数、シリーズ内の最大連勝/連敗数が確認できます。</span></div>
+        <div class="help-item"><span class="help-item-icon">▼</span><span>ラベルをタップすると展開・折りたたみができます。</span></div>
       </div>`
   },
   pokestats: {
@@ -2083,6 +2094,13 @@ const HELP_CONTENT = {
         <div class="help-item"><span class="help-item-icon">⚔️</span><span><strong>わざ1・わざ2</strong>：使用した技セットを記録</span></div>
         <div class="help-item"><span class="help-item-icon">🎒</span><span><strong>もちもの①②③</strong>：装備したもちものを記録。専用もちものがあるポケモンは①が自動固定。</span></div>
         <div class="help-item"><span class="help-item-icon">💊</span><span><strong>バトルアイテム</strong>：使用したバトルアイテムを記録</span></div>
+        <div class="help-item"><span class="help-item-icon">🥇</span><span><strong>ランク帯</strong>：試合時のランク帯を記録（ランク別成績の集計に使用）</span></div>
+        <div class="help-item"><span class="help-item-icon">📝</span><span><strong>メモ</strong>：対戦の気づきや反省点などを自由に記入できます</span></div>
+      </div>
+      <div class="help-section">
+        <div class="help-section-title">💾 ロードアウト記憶</div>
+        <div class="help-item"><span class="help-item-icon">💾</span><span>ポケモンを切り替えると、直前のポケモンのわざ・もちもの・バトルアイテムが自動で保存されます。</span></div>
+        <div class="help-item"><span class="help-item-icon">🔄</span><span>同じポケモンを再度選択すると、前回の設定が自動で復元されます。</span></div>
       </div>`
   },
   history: {
@@ -2093,6 +2111,12 @@ const HELP_CONTENT = {
         <div class="help-item"><span class="help-item-icon">🟢</span><span><strong>勝利</strong>／<strong>敗北</strong>バッジで結果を確認</span></div>
         <div class="help-item"><span class="help-item-icon">🎮</span><span>ソロ・デュオ/トリオ・フルパのマッチ種別バッジ</span></div>
         <div class="help-item"><span class="help-item-icon">🕐</span><span>記録した日付・時刻が右に表示されます</span></div>
+        <div class="help-item"><span class="help-item-icon">📝</span><span>メモを記入した試合はアイコンと共に内容が表示されます</span></div>
+      </div>
+      <div class="help-section">
+        <div class="help-section-title">フィルター</div>
+        <div class="help-item"><span class="help-item-icon">🔽</span><span>勝利／敗北・モード別でフィルタリングできます。組み合わせて絞り込みも可能です。</span></div>
+        <div class="help-item"><span class="help-item-icon">📄</span><span>20件ごとにページ分割されています。下のページボタンで切り替えられます。</span></div>
       </div>
       <div class="help-section">
         <div class="help-section-title">操作</div>
